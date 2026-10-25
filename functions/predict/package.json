@@ -1,0 +1,16 @@
+{
+  "name": "predict",
+  "version": "1.0.0",
+  "description": "HackSphere 3.0 QuickML prediction function",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "zcatalyst-sdk-node": "^3.4.0"
+  }
+}

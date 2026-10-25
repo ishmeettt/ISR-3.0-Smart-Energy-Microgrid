@@ -1,0 +1,13 @@
+{
+  "deployment": {
+    "name": "predict",
+    "stack": "node20",
+    "type": "advancedio",
+    "env_variables": {
+      "QUICKML_ENDPOINT_KEY": "<YOUR_QUICKML_ENDPOINT_KEY>"
+    }
+  },
+  "execution": {
+    "main": "index.js"
+  }
+}

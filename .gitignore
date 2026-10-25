@@ -1,0 +1,39 @@
+# --- Credentials / local CLI state (never publish) ---
+# catalyst-config.json contains the QuickML endpoint key;
+# use catalyst-config.example.json as the template instead.
+functions/predict/catalyst-config.json
+.catalystrc
+.env
+.env.*
+*.dev.vars
+
+# --- Dependencies ---
+node_modules/
+functions/predict/node_modules/
+
+# --- Build / deploy artifacts ---
+.build/
+*.zip
+node-v20/
+*.bak
+
+# --- Generated outputs ---
+predictions.csv
+
+# --- Logs & runtime state ---
+*.log
+*.pid
+serve.pid
+
+# --- Python ---
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

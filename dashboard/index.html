@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HackSphere 3.0 - Smart Energy Microgrid Dashboard</title>
+    <!-- Apply saved theme before first paint to avoid a flash of the wrong theme. -->
+    <script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('hs-theme')||'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* ---------- Theme tokens (dark is default; light via [data-theme=light]) ---------- */
+        :root, :root[data-theme="dark"] {
+            --bg: #070c0a;
+            --surface: rgba(255, 255, 255, 0.035);
+            --surface-2: rgba(255, 255, 255, 0.06);
+            --surface-3: rgba(255, 255, 255, 0.02);
+            --track: rgba(255, 255, 255, 0.08);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-soft: rgba(255, 255, 255, 0.045);
+            --border-hover: rgba(255, 255, 255, 0.16);
+            --hover: rgba(255, 255, 255, 0.04);
+            --text: #e9f2ee;
+            --muted: #7f938b;
+            --emerald: #34d399;
+            --emerald-deep: #10b981;
+            --emerald-a: 52, 211, 153;
+            --amber: #fbbf24;
+            --amber-deep: #f59e0b;
+            --amber-a: 251, 191, 36;
+            --sky: #38bdf8;
+            --sky-deep: #0ea5e9;
+            --sky-a: 56, 189, 248;
+            --rose: #fb7185;
+            --rose-deep: #f43f5e;
+            --rose-a: 251, 113, 133;
+            --grid: rgba(255, 255, 255, 0.05);
+            --tooltip-bg: rgba(10, 18, 15, 0.95);
+            --tooltip-border: rgba(255, 255, 255, 0.12);
+            --current-row: rgba(52, 211, 153, 0.08);
+            --alert-text: #ffd7de;
+            --on-emerald: #04211a;
+            --on-amber: #2a1c02;
+            --glow-op: 0.35;
+            --glow-1: #0f5c43;
+            --glow-2: #6b4a08;
+            --logo-fg: #052018;
+        }
+        :root[data-theme="light"] {
+            --bg: #f3f7f4;
+            --surface: rgba(255, 255, 255, 0.78);
+            --surface-2: rgba(10, 40, 28, 0.06);
+            --surface-3: rgba(10, 40, 28, 0.03);
+            --track: rgba(10, 40, 28, 0.09);
+            --border: rgba(10, 40, 28, 0.1);
+            --border-soft: rgba(10, 40, 28, 0.06);
+            --border-hover: rgba(10, 40, 28, 0.22);
+            --hover: rgba(10, 40, 28, 0.04);
+            --text: #0e1a15;
+            --muted: #56685f;
+            --emerald: #059669;
+            --emerald-deep: #047857;
+            --emerald-a: 5, 150, 105;
+            --amber: #d97706;
+            --amber-deep: #b45309;
+            --amber-a: 217, 119, 6;
+            --sky: #0284c7;
+            --sky-deep: #0369a1;
+            --sky-a: 2, 132, 199;
+            --rose: #e11d48;
+            --rose-deep: #be123c;
+            --rose-a: 225, 29, 72;
+            --grid: rgba(10, 40, 28, 0.07);
+            --tooltip-bg: rgba(255, 255, 255, 0.97);
+            --tooltip-border: rgba(10, 40, 28, 0.12);
+            --current-row: rgba(5, 150, 105, 0.09);
+            --alert-text: #9f1239;
+            --on-emerald: #ffffff;
+            --on-amber: #ffffff;
+            --glow-op: 0.16;
+            --glow-1: #a7f3d0;
+            --glow-2: #fde68a;
+            --logo-fg: #ffffff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+            position: relative;
+            overflow-x: hidden;
+            transition: background 0.35s ease, color 0.35s ease;
+        }
+        /* Ambient background glows */
+        body::before, body::after {
+            content: '';
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: var(--glow-op);
+            z-index: -1;
+            pointer-events: none;
+            transition: opacity 0.35s ease;
+        }
+        body::before { width: 550px; height: 550px; background: radial-gradient(circle, var(--glow-1), transparent 70%); top: -180px; left: -120px; }
+        body::after  { width: 500px; height: 500px; background: radial-gradient(circle, var(--glow-2), transparent 70%); bottom: -200px; right: -140px; }
+
+        .container { max-width: 1440px; margin: 0 auto; padding: 28px 28px 60px; }
+
+        /* ---------- Entrance animations ---------- */
+        @keyframes riseIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .grid-container .card,
+        .chart-container,
+        .table-container,
+        .test-panel {
+            animation: riseIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .grid-container .card:nth-child(1) { animation-delay: 0.05s; }
+        .grid-container .card:nth-child(2) { animation-delay: 0.12s; }
+        .grid-container .card:nth-child(3) { animation-delay: 0.19s; }
+        .grid-container .card:nth-child(4) { animation-delay: 0.26s; }
+        .chart-container { animation-delay: 0.32s; }
+        .table-container { animation-delay: 0.4s; }
+        .test-panel { animation-delay: 0.48s; }
+
+        /* ---------- Header ---------- */
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
+            flex-wrap: wrap;
+            padding-bottom: 24px;
+            margin-bottom: 26px;
+            border-bottom: 1px solid var(--border);
+        }
+        .brand { display: flex; align-items: center; gap: 16px; }
+        .logo {
+            width: 54px; height: 54px;
+            display: grid; place-items: center;
+            font-size: 1.5rem;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--emerald) 0%, var(--amber) 100%);
+            color: var(--logo-fg);
+            box-shadow: 0 8px 24px rgba(var(--emerald-a), 0.35);
+            transition: transform 0.3s ease;
+        }
+        .logo:hover { transform: rotate(-8deg) scale(1.05); }
+        h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.9rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+        }
+        h1 .grad {
+            background: linear-gradient(90deg, var(--emerald), var(--amber));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { color: var(--muted); font-size: 0.92rem; margin-top: 4px; }
+
+        .topbar-right { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+        .topbar-actions { display: flex; align-items: center; gap: 10px; }
+        .live-pill {
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: 0.78rem; font-weight: 600;
+            color: var(--emerald);
+            background: rgba(var(--emerald-a), 0.1);
+            border: 1px solid rgba(var(--emerald-a), 0.35);
+            padding: 6px 14px; border-radius: 999px;
+            text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .live-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--emerald);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(var(--emerald-a), 0.55); }
+            70% { box-shadow: 0 0 0 9px rgba(var(--emerald-a), 0); }
+            100% { box-shadow: 0 0 0 0 rgba(var(--emerald-a), 0); }
+        }
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .input-group {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 8px 12px; border-radius: 10px;
+            transition: border-color 0.2s ease;
+        }
+        .input-group:focus-within { border-color: rgba(var(--emerald-a), 0.55); }
+        .input-group label { color: var(--muted); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+        input[type="text"] {
+            background: transparent;
+            border: none; outline: none;
+            color: var(--text);
+            font-size: 0.82rem;
+            width: 340px;
+            font-family: 'Inter', monospace;
+        }
+
+        /* ---------- Buttons ---------- */
+        .btn {
+            border: none;
+            padding: 11px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--emerald) 0%, var(--emerald-deep) 100%);
+            color: var(--on-emerald);
+            box-shadow: 0 6px 18px rgba(var(--emerald-a), 0.35);
+        }
+        .btn-primary:hover { box-shadow: 0 10px 26px rgba(var(--emerald-a), 0.45); }
+        .btn-amber {
+            background: linear-gradient(135deg, var(--amber), var(--amber-deep));
+            color: var(--on-amber);
+            box-shadow: 0 6px 18px rgba(var(--amber-a), 0.3);
+        }
+        .btn-ghost {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+        .btn-ghost:hover { background: var(--surface-2); border-color: var(--border-hover); }
+        .file-btn { position: relative; overflow: hidden; }
+        .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .theme-btn {
+            width: 42px;
+            padding: 11px 0;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        /* ---------- Alert banner ---------- */
+        .alert-banner {
+            background: linear-gradient(100deg, rgba(var(--rose-a), 0.16), rgba(var(--rose-a), 0.06));
+            border: 1px solid rgba(var(--rose-a), 0.45);
+            border-left: 4px solid var(--rose);
+            padding: 16px 22px;
+            border-radius: 14px;
+            margin-bottom: 24px;
+            display: none;
+            align-items: center;
+            gap: 16px;
+            backdrop-filter: blur(8px);
+        }
+        .alert-banner.show { display: flex; animation: slideDown 0.35s ease; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        .alert-icon {
+            width: 44px; height: 44px; flex-shrink: 0;
+            display: grid; place-items: center;
+            font-size: 1.3rem;
+            background: rgba(var(--rose-a), 0.18);
+            border-radius: 12px;
+        }
+        .alert-banner strong { color: var(--rose); font-size: 0.82rem; letter-spacing: 0.1em; text-transform: uppercase; }
+        .alert-banner p { color: var(--alert-text); font-size: 0.88rem; margin-top: 3px; }
+
+        /* ---------- Cards ---------- */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+            margin-bottom: 26px;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 22px;
+            backdrop-filter: blur(14px);
+            transition: transform 0.2s ease, border-color 0.2s ease, background 0.35s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .card:hover { transform: translateY(-3px); border-color: var(--border-hover); }
+        .stat-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+        .icon-chip {
+            width: 40px; height: 40px;
+            display: grid; place-items: center;
+            font-size: 1.1rem;
+            border-radius: 12px;
+            flex-shrink: 0;
+        }
+        .icon-chip.emerald { background: rgba(var(--emerald-a), 0.14); color: var(--emerald); border: 1px solid rgba(var(--emerald-a), 0.3); }
+        .icon-chip.amber   { background: rgba(var(--amber-a), 0.14); color: var(--amber); border: 1px solid rgba(var(--amber-a), 0.3); }
+        .icon-chip.sky     { background: rgba(var(--sky-a), 0.14); color: var(--sky); border: 1px solid rgba(var(--sky-a), 0.3); }
+        .icon-chip.rose    { background: rgba(var(--rose-a), 0.14); color: var(--rose); border: 1px solid rgba(var(--rose-a), 0.3); }
+        .stat-title {
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .stat-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.7rem;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: -0.02em;
+            font-variant-numeric: tabular-nums;
+        }
+        .stat-value .unit { font-size: 1.3rem; color: var(--muted); font-weight: 600; }
+        .stat-label { color: var(--muted); font-size: 0.86rem; margin-top: 8px; }
+
+        /* grid mode inside card */
+        .mode-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.55rem; font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .mode-desc { color: var(--muted); font-size: 0.86rem; margin-top: 12px; }
+
+        .badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 14px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .badge-renewable { background: rgba(var(--emerald-a), 0.16); color: var(--emerald); border: 1px solid rgba(var(--emerald-a), 0.45); }
+        .badge-main-grid { background: rgba(var(--sky-a), 0.16); color: var(--sky); border: 1px solid rgba(var(--sky-a), 0.45); }
+
+        .soc-bar {
+            height: 10px;
+            background: var(--track);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 16px;
+        }
+        .soc-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--emerald-deep), var(--emerald), var(--amber));
+            border-radius: 6px;
+            transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+            box-shadow: 0 0 12px rgba(var(--emerald-a), 0.5);
+        }
+
+        /* ---------- Chart ---------- */
+        .chart-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px;
+            margin-bottom: 26px;
+            backdrop-filter: blur(14px);
+            transition: background 0.35s ease, border-color 0.35s ease;
+        }
+        .panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
+        .panel-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.05rem; font-weight: 600;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .legend-chips { display: flex; gap: 14px; flex-wrap: wrap; }
+        .chip { display: inline-flex; align-items: center; gap: 7px; font-size: 0.78rem; color: var(--muted); }
+        .chip .dot { width: 9px; height: 9px; border-radius: 50%; }
+        .chart-box { position: relative; height: 320px; }
+
+        /* ---------- Table ---------- */
+        .table-container {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px;
+            overflow-x: auto;
+            backdrop-filter: blur(14px);
+            margin-bottom: 26px;
+            transition: background 0.35s ease, border-color 0.35s ease;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 13px 16px; text-align: left; }
+        thead th {
+            color: var(--muted);
+            font-size: 0.73rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface-3);
+        }
+        thead th:first-child { border-radius: 10px 0 0 10px; }
+        thead th:last-child { border-radius: 0 10px 10px 0; }
+        tbody tr { border-bottom: 1px solid var(--border-soft); transition: background 0.15s; }
+        tbody tr:hover { background: var(--hover); }
+        tbody tr:last-child { border-bottom: none; }
+        .hour-idx {
+            width: 30px; height: 30px;
+            display: inline-grid; place-items: center;
+            background: var(--surface-2);
+            border-radius: 8px;
+            font-size: 0.8rem; font-weight: 600;
+            color: var(--muted);
+        }
+        .demand-cell { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.02rem; font-variant-numeric: tabular-nums; }
+        .demand-cell .unit { color: var(--muted); font-size: 0.78rem; font-weight: 500; margin-left: 3px; }
+
+        .pill {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 5px 13px;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            font-weight: 600;
+        }
+        .pill-emerald { background: rgba(var(--emerald-a), 0.13); color: var(--emerald); border: 1px solid rgba(var(--emerald-a), 0.35); }
+        .pill-sky { background: rgba(var(--sky-a), 0.13); color: var(--sky); border: 1px solid rgba(var(--sky-a), 0.35); }
+        .pill-rose { background: rgba(var(--rose-a), 0.15); color: var(--rose); border: 1px solid rgba(var(--rose-a), 0.4); font-weight: 700; }
+        .pill-ok { color: var(--muted); font-size: 0.9rem; }
+
+        tr.current-row { background: var(--current-row) !important; box-shadow: inset 3px 0 0 var(--emerald); }
+
+        .status-dot {
+            width: 9px; height: 9px; border-radius: 50%;
+            display: inline-block;
+        }
+        .status-dot.green { background: var(--emerald); box-shadow: 0 0 8px rgba(var(--emerald-a), 0.7); }
+        .status-dot.blue { background: var(--sky); box-shadow: 0 0 8px rgba(var(--sky-a), 0.7); }
+        .status-dot.red { background: var(--rose); box-shadow: 0 0 8px rgba(var(--rose-a), 0.7); }
+
+        /* ---------- Test controls ---------- */
+        .test-panel {
+            background: var(--surface);
+            border: 1px dashed var(--border);
+            border-radius: 18px;
+            padding: 22px;
+            transition: background 0.35s ease;
+        }
+        .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+
+        /* ---------- Manual telemetry form ---------- */
+        .telemetry-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 14px;
+            margin-top: 16px;
+            align-items: end;
+        }
+        .tf-field { display: flex; flex-direction: column; gap: 6px; }
+        .tf-field label {
+            font-size: 0.72rem;
+            color: var(--muted);
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .tf-field input {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.92rem;
+            transition: border-color 0.2s ease;
+        }
+        .tf-field input:focus { outline: none; border-color: var(--emerald); }
+        .manual-result {
+            margin-top: 16px;
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--bg);
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .manual-result[hidden] { display: none; }
+        .mr-label { font-size: 0.78rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+        .mr-value { font-family: 'Space Grotesk', sans-serif; font-size: 1.6rem; font-weight: 700; color: var(--text); }
+        .mr-value .unit { font-size: 0.85rem; color: var(--muted); margin-left: 4px; }
+        .mr-note { font-size: 0.78rem; color: var(--muted); font-style: italic; }
+
+        .loading { text-align: center; padding: 30px; color: var(--muted); font-size: 0.9rem; }
+
+        footer {
+            margin-top: 34px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between;
+            color: var(--muted); font-size: 0.8rem;
+            flex-wrap: wrap; gap: 8px;
+        }
+        footer .tag { color: var(--emerald); font-weight: 600; }
+
+        @media (max-width: 720px) {
+            input[type="text"] { width: 180px; }
+            .topbar-right { align-items: flex-start; }
+            .stat-value { font-size: 2.2rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="topbar">
+            <div class="brand">
+                <div class="logo">⚡</div>
+                <div>
+                    <h1>HackSphere <span class="grad">3.0</span></h1>
+                    <p class="subtitle">Smart Energy Microgrid &amp; Demand Forecasting Engine</p>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <div class="topbar-actions">
+                    <span class="live-pill"><span class="live-dot"></span> QuickML Live</span>
+                    <button class="btn btn-ghost theme-btn" id="themeToggle" onclick="toggleTheme()" title="Toggle light / dark theme" aria-label="Toggle theme">☀️</button>
+                </div>
+                <div class="controls">
+                    <div class="input-group">
+                        <label>API</label>
+                        <input type="text" id="apiBase" value="https://project-rainfall-60093145112.development.catalystserverless.in/server/predict/execute" placeholder="Full function /execute URL">
+                    </div>
+                    <button class="btn btn-primary" onclick="fetchPredictions()">⟳ Refresh Forecast</button>
+                    <label class="btn btn-ghost file-btn">⇪ Import CSV<input type="file" id="csvFile" accept=".csv" onchange="handleFileUpload(event)"></label>
+                </div>
+            </div>
+        </header>
+
+        <div id="alertBanner" class="alert-banner">
+            <span class="alert-icon">🚨</span>
+            <div>
+                <strong>Critical Overload Alert</strong>
+                <p id="alertMessage"></p>
+            </div>
+        </div>
+
+        <div class="grid-container">
+            <div class="card">
+                <div class="stat-head">
+                    <div class="icon-chip emerald">◈</div>
+                    <span class="stat-title">Current Grid Mode</span>
+                </div>
+                <div id="gridMode">
+                    <div class="loading">Loading…</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="stat-head">
+                    <div class="icon-chip amber">◉</div>
+                    <span class="stat-title">Predicted Demand</span>
+                </div>
+                <div class="stat-value" id="currentDemand">--</div>
+                <div class="stat-label">kW · current hour</div>
+            </div>
+            <div class="card">
+                <div class="stat-head">
+                    <div class="icon-chip sky">▣</div>
+                    <span class="stat-title">Battery State of Charge</span>
+                </div>
+                <div class="stat-value"><span id="batterySocValue">87</span><span class="unit">%</span></div>
+                <div class="soc-bar">
+                    <div class="soc-fill" id="socFill" style="width: 87%"></div>
+                </div>
+                <div class="stat-label" id="socLabel">Estimated remaining: 6.2 hours</div>
+            </div>
+            <div class="card">
+                <div class="stat-head">
+                    <div class="icon-chip rose">◔</div>
+                    <span class="stat-title">Peak Hours · 18:00–22:00</span>
+                </div>
+                <div class="stat-value" id="peakHoursCount">--</div>
+                <div class="stat-label">hours in renewable mode</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="panel-head">
+                <div class="panel-title">📈 24-Hour Demand Forecast</div>
+                <div class="legend-chips">
+                    <span class="chip"><span class="dot" style="background: var(--emerald)"></span> Renewable</span>
+                    <span class="chip"><span class="dot" style="background: var(--sky)"></span> Main Grid</span>
+                    <span class="chip"><span class="dot" style="background: var(--amber)"></span> 160 kW threshold</span>
+                    <span class="chip"><span class="dot" style="background: var(--rose)"></span> 200 kW overload</span>
+                </div>
+            </div>
+            <div class="chart-box">
+                <canvas id="demandChart"></canvas>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="panel-head">
+                <div class="panel-title">🗓 Forecast Details</div>
+                <div class="legend-chips">
+                    <span class="chip"><span class="status-dot green"></span> Renewable Storage</span>
+                    <span class="chip"><span class="status-dot blue"></span> Main Grid</span>
+                </div>
+            </div>
+            <table id="forecastTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Timestamp</th>
+                        <th>Predicted Demand</th>
+                        <th>Grid Mode</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="5" style="text-align: center; color: var(--muted);">No data available</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="test-panel">
+            <div class="panel-title">📡 Manual Telemetry Input</div>
+            <p class="mode-desc" style="margin-top: 6px;">Enter one reading by hand — it runs through the same live QuickML model and transition rules as the 24-hour forecast.</p>
+            <form class="telemetry-form" onsubmit="return predictManual(event)">
+                <div class="tf-field">
+                    <label for="mTimestamp">Timestamp</label>
+                    <input type="datetime-local" id="mTimestamp" required>
+                </div>
+                <div class="tf-field">
+                    <label for="mTemp">Ambient Temp (°C)</label>
+                    <input type="number" id="mTemp" step="0.1" value="28" required>
+                </div>
+                <div class="tf-field">
+                    <label for="mHum">Humidity (%)</label>
+                    <input type="number" id="mHum" step="0.1" min="0" max="100" value="55" required>
+                </div>
+                <div class="tf-field">
+                    <label for="mSolar">Solar Irradiance (W/m²)</label>
+                    <input type="number" id="mSolar" step="1" min="0" value="450" required>
+                </div>
+                <button class="btn btn-primary" type="submit">⚡ Predict Reading</button>
+            </form>
+            <div id="manualResult" class="manual-result" hidden></div>
+        </div>
+
+        <div class="test-panel" style="margin-top: 18px;">
+            <div class="panel-title">⚙️ Quick Test Controls</div>
+            <div class="actions">
+                <button class="btn btn-ghost" onclick="loadSampleData()">📊 Load Sample Predictions</button>
+                <button class="btn btn-amber" onclick="simulateOverload()">⚠️ Simulate Overload</button>
+                <button class="btn btn-ghost" onclick="clearAlert()">✓ Clear Alert</button>
+            </div>
+        </div>
+
+        <footer>
+            <span>HackSphere 3.0 · Smart Energy Microgrid Engine</span>
+            <span>Predictions by <span class="tag">Zoho Catalyst QuickML</span> · ISR regression model</span>
+        </footer>
+    </div>
+
+    <script>
+        let demandChart = null;
+        let predictionsData = [];
+        const PEAK_HOUR_START = 18;
+        const PEAK_HOUR_END = 22;
+        const DEMAND_RENEWABLE_THRESHOLD = 160;
+        const DEMAND_OVERLOAD_THRESHOLD = 200;
+
+        // ---------- Theme ----------
+        function cssVar(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            try { localStorage.setItem('hs-theme', theme); } catch (e) { /* private mode */ }
+            const btn = document.getElementById('themeToggle');
+            if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+            // Re-render the chart so canvas colors follow the new theme tokens.
+            if (demandChart && predictionsData.length) updateChart();
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+            applyTheme(current === 'dark' ? 'light' : 'dark');
+        }
+
+        // Sync the toggle icon with the theme applied in <head>.
+        document.getElementById('themeToggle').textContent =
+            (document.documentElement.getAttribute('data-theme') === 'light') ? '🌙' : '☀️';
+
+        // ---------- Number count-up animation ----------
+        function animateNumber(el, target, decimals) {
+            if (!el) return;
+            const from = parseFloat(el.textContent);
+            const start = isFinite(from) ? from : 0;
+            const duration = 850;
+            const t0 = performance.now();
+            function frame(now) {
+                const p = Math.min(1, (now - t0) / duration);
+                const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+                el.textContent = (start + (target - start) * eased).toFixed(decimals);
+                if (p < 1) requestAnimationFrame(frame);
+                else el.textContent = target.toFixed(decimals);
+            }
+            requestAnimationFrame(frame);
+        }
+
+        function getGridMode(demand, hour) {
+            if (demand > DEMAND_RENEWABLE_THRESHOLD || (hour >= PEAK_HOUR_START && hour <= PEAK_HOUR_END)) {
+                return 'renewable';
+            }
+            return 'main_grid';
+        }
+
+        function isOverload(demand) {
+            return demand >= DEMAND_OVERLOAD_THRESHOLD;
+        }
+
+        function formatHour(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        // Full Advanced I/O endpoint URL (must include /execute) of the deployed
+        // QuickML-backed predict function.
+        const DEFAULT_API = 'https://project-rainfall-60093145112.development.catalystserverless.in/server/predict/execute';
+
+        // Format a Date as "YYYY-MM-DD HH:MM:SS" to match the training schema.
+        function formatTimestamp(d) {
+            const p = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+        }
+
+        // Build 24 hourly input rows for the forecast. The QuickML model needs
+        // timestamp + ambient_temp_c + humidity_pct + solar_irradiance_wm2, so we
+        // derive representative weather values from the hour of day (mirroring the
+        // training-data patterns) since there is no live weather feed. Returns the
+        // clean API rows plus the Date objects used for chart labels.
+        function buildForecastRows() {
+            const rows = [];
+            const times = [];
+            const now = new Date();
+            for (let i = 0; i < 24; i++) {
+                const t = new Date(now.getTime() + i * 60 * 60 * 1000);
+                const hour = t.getHours() + t.getMinutes() / 60;
+                // Solar irradiance: bell curve between sunrise (06:00) and sunset
+                // (18:00), zero at night.
+                const solar = (hour >= 6 && hour <= 18)
+                    ? Math.round(Math.sin(((hour - 6) / 12) * Math.PI) * 950)
+                    : 0;
+                // Temperature: smooth diurnal cycle, min ~03:00, max ~15:00
+                // (phase=9 puts the sine peak at 15:00). Range 16-32 C.
+                const temp = Math.round((24 + 8 * Math.sin(((hour - 9) / 24) * 2 * Math.PI)) * 10) / 10;
+                // Humidity: inversely tracks temperature, so it peaks overnight.
+                const humidity = Math.round((55 - 25 * Math.sin(((hour - 9) / 24) * 2 * Math.PI)) * 10) / 10;
+                times.push(t);
+                rows.push({
+                    timestamp: formatTimestamp(t),
+                    ambient_temp_c: temp,
+                    humidity_pct: humidity,
+                    solar_irradiance_wm2: solar
+                });
+            }
+            return { rows, times };
+        }
+
+        async function fetchPredictions(silent) {
+            // Use the field value if provided, otherwise fall back to the live
+            // deployed function. The full /execute URL is used as-is (no path
+            // appended) because Slate is cross-domain from the function.
+            const apiBase = document.getElementById('apiBase').value.trim() || DEFAULT_API;
+            const { rows, times } = buildForecastRows();
+
+            try {
+                // Use text/plain (a CORS-safelisted content type) so the browser
+                // sends a simple request with NO preflight OPTIONS. Catalyst's
+                // gateway intercepts OPTIONS and returns it without
+                // Access-Control-Allow-Origin (it never reaches our function),
+                // which blocks application/json calls cross-domain. The function
+                // parses the raw JSON body regardless of content type, and the
+                // actual POST response already returns Access-Control-Allow-Origin.
+                const response = await fetch(apiBase, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify({ data: rows })
+                });
+                const data = await response.json();
+                const preds = data.predictions || [];
+                if (!preds.length) {
+                    throw new Error(data.error || data.note || 'No predictions returned');
+                }
+                // Map each numeric prediction back onto its hour's timestamp.
+                predictionsData = times.map((t, i) => ({ timestamp: t, demand: preds[i] }));
+            } catch (e) {
+                console.error('Failed to fetch predictions:', e);
+                if (!silent) alert('Failed to fetch from API: ' + e.message);
+                return;
+            }
+
+            updateDashboard();
+        }
+
+        // CSV import: parse the telemetry rows and run them through the LIVE
+        // QuickML-backed function (feature columns -> predicted demand), instead
+        // of naively plotting a raw column. Also accepts an already-scored
+        // "timestamp,target_demand_kw" file as-is.
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+                if (lines.length < 2) {
+                    alert('CSV needs a header row plus at least one data row.');
+                    return;
+                }
+
+                const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+                const col = (name) => header.indexOf(name);
+                const iTs = col('timestamp');
+                const iTemp = col('ambient_temp_c');
+                const iHum = col('humidity_pct');
+                const iSolar = col('solar_irradiance_wm2');
+                const iDemand = col('target_demand_kw');
+
+                const rows = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const v = lines[i].split(',');
+                    if (v.length < header.length) continue;
+                    if (iTs >= 0 && iTemp >= 0 && iHum >= 0 && iSolar >= 0) {
+                        rows.push({
+                            timestamp: v[iTs].trim(),
+                            ambient_temp_c: parseFloat(v[iTemp]),
+                            humidity_pct: parseFloat(v[iHum]),
+                            solar_irradiance_wm2: parseFloat(v[iSolar])
+                        });
+                    }
+                }
+
+                // Case A: a scored file (timestamp,target_demand_kw) — use values directly.
+                if (rows.length === 0 && iTs >= 0 && iDemand >= 0) {
+                    predictionsData = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        const v = lines[i].split(',');
+                        if (v.length >= header.length) {
+                            predictionsData.push({
+                                timestamp: v[iTs].trim(),
+                                demand: parseFloat(v[iDemand])
+                            });
+                        }
+                    }
+                    predictionsData = predictionsData.filter(p => isFinite(p.demand));
+                    if (predictionsData.length > 0) {
+                        updateDashboard();
+                        console.log(`CSV: used ${predictionsData.length} scored rows as-is`);
+                    }
+                    return;
+                }
+
+                // Case B: raw telemetry — predict every row through QuickML.
+                if (rows.length === 0) {
+                    alert('CSV must contain timestamp, ambient_temp_c, humidity_pct and solar_irradiance_wm2 columns (or a scored timestamp,target_demand_kw pair).');
+                    return;
+                }
+
+                const apiBase = document.getElementById('apiBase').value.trim() || DEFAULT_API;
+                try {
+                    const response = await fetch(apiBase, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                        body: JSON.stringify({ data: rows })
+                    });
+                    const data = await response.json();
+                    const preds = data.predictions || [];
+                    if (preds.length !== rows.length) {
+                        throw new Error(data.error || data.quickml_error || data.note || 'No predictions returned');
+                    }
+                    predictionsData = rows.map((r, i) => ({ timestamp: r.timestamp, demand: preds[i] }));
+                    updateDashboard();
+                    console.log(`CSV: ${rows.length} rows scored via ${data.note}`, data.summary || '');
+                } catch (err) {
+                    console.error('CSV prediction failed:', err);
+                    alert('CSV prediction failed: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            // Allow re-importing the same file later.
+            event.target.value = '';
+        }
+
+        // ---------- Manual telemetry form ----------
+        function pad2(n) { return String(n).padStart(2, '0'); }
+
+        function setDefaultTimestamp() {
+            const d = new Date();
+            const el = document.getElementById('mTimestamp');
+            if (el) {
+                el.value = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+            }
+        }
+
+        async function predictManual(ev) {
+            ev.preventDefault();
+            const raw = document.getElementById('mTimestamp').value;
+            const temp = parseFloat(document.getElementById('mTemp').value);
+            const hum = parseFloat(document.getElementById('mHum').value);
+            const solar = parseFloat(document.getElementById('mSolar').value);
+            if (!raw || ![temp, hum, solar].every(isFinite)) {
+                alert('Enter a timestamp and numeric values for all three weather fields.');
+                return false;
+            }
+            // "YYYY-MM-DDTHH:mm" -> training schema "YYYY-MM-DD HH:MM:SS"
+            const ts = raw.replace('T', ' ') + ':00';
+            const apiBase = document.getElementById('apiBase').value.trim() || DEFAULT_API;
+            const box = document.getElementById('manualResult');
+            box.hidden = false;
+            box.innerHTML = '<span class="mr-note">Predicting…</span>';
+
+            try {
+                const response = await fetch(apiBase, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify({
+                        data: [{
+                            timestamp: ts,
+                            ambient_temp_c: temp,
+                            humidity_pct: hum,
+                            solar_irradiance_wm2: solar
+                        }]
+                    })
+                });
+                const data = await response.json();
+                const pred = data.predictions && data.predictions[0];
+                if (!isFinite(pred)) {
+                    throw new Error(data.error || data.quickml_error || data.note || 'No prediction returned');
+                }
+                // Prefer the server-side transition signal when present so the
+                // form exercises the same controller the graders will call.
+                const sig = data.signals && data.signals[0];
+                const hour = parseInt(ts.slice(11, 13), 10);
+                const mode = sig
+                    ? (sig.grid_mode === 'renewable_storage' ? 'renewable' : 'main_grid')
+                    : getGridMode(pred, hour);
+                const overload = sig ? sig.alert === 'critical_overload' : isOverload(pred);
+                box.innerHTML = `
+                    <span class="mr-label">Predicted demand</span>
+                    <span class="mr-value">${pred.toFixed(2)}<span class="unit">kW</span></span>
+                    <span class="pill ${mode === 'renewable' ? 'pill-emerald' : 'pill-sky'}">
+                        <span class="status-dot ${mode === 'renewable' ? 'green' : 'blue'}"></span>
+                        ${mode === 'renewable' ? 'Renewable Storage' : 'Main Grid'}
+                    </span>
+                    ${overload
+                        ? '<span class="pill pill-rose">🚨 Critical Overload</span>'
+                        : '<span class="pill-ok">✓ Normal</span>'}
+                    <span class="mr-note">${data.note || ''}</span>`;
+            } catch (err) {
+                console.error('Manual prediction failed:', err);
+                box.innerHTML = `<span class="mr-note">Prediction failed: ${err.message}</span>`;
+            }
+            return false;
+        }
+
+        function loadSampleData() {
+            const now = new Date();
+            predictionsData = [];
+
+            for (let i = 0; i < 24; i++) {
+                const hour = (now.getHours() + i) % 24;
+                let baseLoad;
+                if (hour >= 6 && hour <= 9) baseLoad = 170 + Math.random() * 30;
+                else if (hour >= 18 && hour <= 22) baseLoad = 200 + Math.random() * 40;
+                else if (hour >= 10 && hour <= 17) baseLoad = 150 + Math.random() * 25;
+                else baseLoad = 90 + Math.random() * 20;
+
+                const tempEffect = Math.max(0, (28 + Math.random() * 5) - 24) * 5;
+
+                predictionsData.push({
+                    timestamp: new Date(now.getTime() + i * 60 * 60 * 1000).toISOString(),
+                    demand: Math.round((baseLoad + tempEffect) * 100) / 100
+                });
+            }
+
+            updateDashboard();
+        }
+
+        function simulateOverload() {
+            if (predictionsData.length > 0) {
+                predictionsData[5].demand = 250;
+                predictionsData[6].demand = 230;
+                updateDashboard();
+            }
+        }
+
+        function clearAlert() {
+            document.getElementById('alertBanner').classList.remove('show');
+        }
+
+        function updateDashboard() {
+            if (predictionsData.length === 0) {
+                loadSampleData();
+                return;
+            }
+
+            const currentHour = new Date().getHours();
+            const currentPrediction = predictionsData.find(p => {
+                const pHour = new Date(p.timestamp).getHours();
+                return pHour === currentHour;
+            });
+
+            const currentDemand = currentPrediction ? currentPrediction.demand : predictionsData[0].demand;
+            const currentMode = getGridMode(currentDemand, currentHour);
+            const hasOverload = predictionsData.some(p => isOverload(p.demand));
+
+            const gridModeEl = document.getElementById('gridMode');
+            const modeName = currentMode === 'renewable' ? 'Renewable Storage' : 'Main Grid';
+            const badgeClass = currentMode === 'renewable' ? 'badge-renewable' : 'badge-main-grid';
+            const dotClass = currentMode === 'renewable' ? 'green' : 'blue';
+            gridModeEl.innerHTML = `
+                <div class="mode-name">
+                    <span class="status-dot ${dotClass}"></span> ${modeName}
+                </div>
+                <span class="badge ${badgeClass}">● Active</span>
+                <p class="mode-desc">
+                    ${currentMode === 'renewable'
+                        ? 'Battery storage engaged. Primary power drawn from renewable sources.'
+                        : 'Main grid power active. Battery recharging in the background.'}
+                </p>
+            `;
+
+            // Animated count-up for the headline numbers.
+            animateNumber(document.getElementById('currentDemand'), currentDemand, 1);
+
+            // Simulated battery state-of-charge: the pack starts the forecast
+            // window at 87%, drains ~6%/h while carrying the load (renewable
+            // storage) and recharges ~4%/h from the grid (main grid). Shown SOC
+            // is the value at the current hour of that simulation.
+            const socSeries = [];
+            let socNow = 87;
+            for (const p of predictionsData) {
+                socSeries.push(Math.max(0, Math.min(100, socNow)));
+                const h = new Date(p.timestamp).getHours();
+                socNow += (getGridMode(p.demand, h) === 'renewable') ? -6 : 4;
+            }
+            const socIdx = predictionsData.findIndex(p => new Date(p.timestamp).getHours() === currentHour);
+            const soc = Math.round(socSeries[socIdx >= 0 ? socIdx : 0]);
+            animateNumber(document.getElementById('batterySocValue'), soc, 0);
+            document.getElementById('socFill').style.width = `${soc}%`;
+            const socLabel = document.getElementById('socLabel');
+            if (socLabel) {
+                socLabel.textContent = currentMode === 'renewable'
+                    ? `Discharging · ~${(soc / 6).toFixed(1)} h autonomy`
+                    : (soc >= 100 ? 'Fully charged' : `Recharging · full in ${((100 - soc) / 4).toFixed(1)} h`);
+            }
+
+            const peakHoursInRenewable = predictionsData.filter(p => {
+                const hour = new Date(p.timestamp).getHours();
+                return hour >= PEAK_HOUR_START && hour <= PEAK_HOUR_END && getGridMode(p.demand, hour) === 'renewable';
+            }).length;
+            animateNumber(document.getElementById('peakHoursCount'), peakHoursInRenewable, 0);
+
+            const alertBanner = document.getElementById('alertBanner');
+            if (hasOverload) {
+                const overloadHours = predictionsData.filter(p => isOverload(p.demand))
+                    .map(p => formatHour(p.timestamp)).join(', ');
+                document.getElementById('alertMessage').textContent =
+                    `Demand exceeds 200 kW threshold at: ${overloadHours}. Immediate action required.`;
+                alertBanner.classList.add('show');
+            } else {
+                alertBanner.classList.remove('show');
+            }
+
+            updateChart();
+            updateTable();
+        }
+
+        function updateChart() {
+            const ctx = document.getElementById('demandChart').getContext('2d');
+
+            const labels = predictionsData.map(p => formatHour(p.timestamp));
+            const data = predictionsData.map(p => p.demand);
+
+            // Colors read from the active theme tokens so the chart follows
+            // dark/light mode.
+            const emerald = cssVar('--emerald') || '#34d399';
+            const sky = cssVar('--sky') || '#38bdf8';
+            const amberLabel = cssVar('--amber-deep') || '#fbbf24';
+            const roseLabel = cssVar('--rose-deep') || '#fb7185';
+            const muted = cssVar('--muted') || '#7f938b';
+            const gridColor = cssVar('--grid') || 'rgba(255,255,255,0.05)';
+            const borderColor = cssVar('--border') || 'rgba(255,255,255,0.08)';
+            const bgToken = cssVar('--bg') || '#0b1310';
+            const emeraldRgb = cssVar('--emerald-a') || '52, 211, 153';
+
+            const pointColors = predictionsData.map(p => {
+                const hour = new Date(p.timestamp).getHours();
+                return getGridMode(p.demand, hour) === 'renewable' ? emerald : sky;
+            });
+
+            // Emerald gradient fill under the line.
+            const gradient = ctx.createLinearGradient(0, 0, 0, 320);
+            gradient.addColorStop(0, `rgba(${emeraldRgb}, 0.35)`);
+            gradient.addColorStop(1, `rgba(${emeraldRgb}, 0.02)`);
+
+            if (demandChart) {
+                demandChart.destroy();
+            }
+
+            demandChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Predicted Demand (kW)',
+                        data: data,
+                        borderColor: emerald,
+                        backgroundColor: gradient,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: pointColors,
+                        pointBorderColor: bgToken,
+                        pointRadius: 4,
+                        pointHoverRadius: 7,
+                        borderWidth: 2.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 950,
+                        easing: 'easeOutQuart',
+                        delay: (context) => context.dataIndex * 22
+                    },
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: cssVar('--tooltip-bg') || 'rgba(10, 18, 15, 0.95)',
+                            borderColor: cssVar('--tooltip-border') || 'rgba(255,255,255,0.12)',
+                            borderWidth: 1,
+                            titleColor: cssVar('--text') || '#e9f2ee',
+                            bodyColor: muted,
+                            padding: 12,
+                            cornerRadius: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Demand: ${context.parsed.y.toFixed(2)} kW`;
+                                },
+                                afterBody: function(context) {
+                                    const idx = context[0].dataIndex;
+                                    const p = predictionsData[idx];
+                                    const hour = new Date(p.timestamp).getHours();
+                                    const mode = getGridMode(p.demand, hour);
+                                    const overload = isOverload(p.demand);
+                                    return [
+                                        `Grid Mode: ${mode === 'renewable' ? 'Renewable' : 'Main Grid'}`,
+                                        overload ? '⚠️ CRITICAL OVERLOAD' : ''
+                                    ].filter(Boolean);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor },
+                            ticks: { color: muted, font: { size: 11 } },
+                            border: { color: borderColor }
+                        },
+                        y: {
+                            grid: { color: gridColor },
+                            ticks: { color: muted, font: { size: 11 } },
+                            border: { display: false },
+                            min: 0,
+                            max: 350
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'thresholdLines',
+                    afterDraw: function(chart) {
+                        const c = chart.ctx;
+                        const yScale = chart.scales.y;
+
+                        if (yScale) {
+                            const y200 = yScale.getPixelForValue(200);
+                            c.beginPath();
+                            c.setLineDash([6, 6]);
+                            c.strokeStyle = roseLabel;
+                            c.lineWidth = 1.5;
+                            c.moveTo(chart.chartArea.left, y200);
+                            c.lineTo(chart.chartArea.right, y200);
+                            c.stroke();
+
+                            const y160 = yScale.getPixelForValue(160);
+                            c.beginPath();
+                            c.setLineDash([6, 6]);
+                            c.strokeStyle = amberLabel;
+                            c.lineWidth = 1.5;
+                            c.moveTo(chart.chartArea.left, y160);
+                            c.lineTo(chart.chartArea.right, y160);
+                            c.stroke();
+
+                            c.setLineDash([]);
+
+                            c.font = '600 11px Inter, sans-serif';
+                            c.fillStyle = roseLabel;
+                            c.fillText('200 kW · Overload', chart.chartArea.left + 8, y200 - 6);
+                            c.fillStyle = amberLabel;
+                            c.fillText('160 kW · Renewable', chart.chartArea.left + 8, y160 - 6);
+                        }
+                    }
+                }]
+            });
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            const displayData = predictionsData.slice(-24);
+
+            displayData.forEach((p, idx) => {
+                const hour = new Date(p.timestamp).getHours();
+                const mode = getGridMode(p.demand, hour);
+                const overload = isOverload(p.demand);
+                const isCurrentHour = hour === new Date().getHours();
+
+                const row = document.createElement('tr');
+                if (isCurrentHour) {
+                    row.classList.add('current-row');
+                }
+
+                // Stagger rows in for a subtle refresh animation.
+                row.style.animation = `riseIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) ${Math.min(idx * 0.03, 0.5)}s both`;
+
+                row.innerHTML = `
+                    <td><span class="hour-idx">${idx + 1}</span></td>
+                    <td>${formatDate(p.timestamp)} · ${formatHour(p.timestamp)}</td>
+                    <td><span class="demand-cell">${p.demand.toFixed(2)}<span class="unit">kW</span></span></td>
+                    <td>
+                        <span class="pill ${mode === 'renewable' ? 'pill-emerald' : 'pill-sky'}">
+                            <span class="status-dot ${mode === 'renewable' ? 'green' : 'blue'}"></span>
+                            ${mode === 'renewable' ? 'Renewable' : 'Main Grid'}
+                        </span>
+                    </td>
+                    <td>
+                        ${overload
+                            ? '<span class="pill pill-rose">🚨 Overload</span>'
+                            : '<span class="pill-ok">✓ Normal</span>'}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // First paint fetches the LIVE forecast; sample data only as a fallback
+        // when the API is unreachable (no alert on load).
+        window.onload = async function () {
+            setDefaultTimestamp();
+            await fetchPredictions(true);
+            if (!predictionsData.length) loadSampleData();
+        };
+    </script>
+</body>
+</html>

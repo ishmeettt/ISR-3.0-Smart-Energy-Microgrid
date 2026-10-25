@@ -1,0 +1,19 @@
+{
+  "project_id": "100321000000013024",
+  "project_name": "HackSphere3.0",
+  "org_id": "60093145112",
+  "functions": {
+    "folder_path": "C:/Users/user/HackSphere3.0/functions",
+    "targets": [
+      "predict"
+    ],
+    "ignore": [],
+    "source": "functions"
+  },
+  "slate": [
+    {
+      "name": "dashboard",
+      "source": "C:\\Users\\user\\HackSphere3.0\\dashboard"
+    }
+  ]
+}

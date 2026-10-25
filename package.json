@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "zcatalyst-sdk-node": "^3.4.0"
+  }
+}
