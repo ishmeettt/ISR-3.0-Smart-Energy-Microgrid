@@ -185,6 +185,36 @@ function buildTransitionSignals(rows, predictions) {
  * Returns an array of predicted target_demand_kw values, or null when no
  * endpoint key is configured (caller falls back to the heuristic).
  */
+// ---- Data Store forecast log (best-effort) ----
+// Writes every forecast's transition signals into the `forecast_log` table.
+// Table creation is Console-only (verified: POST /table accepts {table_name}
+// but is rejected with "invalid oauth scope" — function tokens carry no
+// schema-DDL scope), so until the table exists the insert fails once and is
+// remembered per container: zero added latency, and the log turns on by
+// itself the moment the table is created in the Console.
+let DATASTORE_LOG_STATE = 'unknown'; // 'unknown' | 'on' | 'off'
+async function logForecast(req, signals, note) {
+    if (DATASTORE_LOG_STATE === 'off') return;
+    try {
+        const app = catalyst.initialize(req, { scope: 'admin' });
+        const rows = signals.map(s => ({
+            timestamp: s.timestamp,
+            predicted_demand_kw: s.predicted_demand_kw,
+            grid_mode: s.grid_mode,
+            alert: s.alert,
+            model_source: note
+        }));
+        await app.datastore().table('forecast_log').insertRows(rows);
+        DATASTORE_LOG_STATE = 'on';
+    } catch (e) {
+        const msg = String((e && e.message) || e);
+        if (/wrong format|oauth scope|not found|doesn't exist|does not exist|invalid/i.test(msg)) {
+            DATASTORE_LOG_STATE = 'off';
+        }
+        // Never let logging break a prediction response.
+    }
+}
+
 async function callQuickMl(req, rows) {
     if (!QUICKML_ENDPOINT_KEY) {
         return null; // signal that we should fall back
@@ -401,6 +431,36 @@ module.exports = async (req, res) => {
             return;
         }
 
+        // ---- Stratus CSV archive ----
+        // Archives imported CSVs to the Stratus bucket. Bucket creation is
+        // a Console-only operation (verified empirically: the API rejects
+        // POST /bucket with "User needs to be in session when accessing
+        // Stratus for the first time"), so this route activates automatically
+        // the moment the bucket exists. Until then it reports the skip
+        // honestly instead of failing the import.
+        if (path === '/archive' && method === 'POST') {
+            const body = await getBody(req);
+            if (!body || typeof body.name !== 'string' || typeof body.content !== 'string') {
+                sendJson(res, 400, { error: 'name and content strings required' });
+                return;
+            }
+            try {
+                const app = catalyst.initialize(req, { scope: 'admin' });
+                const bucket = app.stratus().bucket('isr-forecast-archive');
+                await bucket.putObject(
+                    'csv/' + Date.now() + '-' + body.name.replace(/[^A-Za-z0-9._-]/g, '_'),
+                    body.content
+                );
+                sendJson(res, 200, { archived: true });
+            } catch (e) {
+                sendJson(res, 200, {
+                    archived: false,
+                    reason: String((e && e.message) || e).slice(0, 200)
+                });
+            }
+            return;
+        }
+
         // Virtual assistant: Groq-backed chat with full site knowledge.
         // POST /assistant { messages: [{role, content}, ...] } -> { reply }
         // Accepts text/plain (CORS-safelisted, same trick as the predict route).
@@ -529,6 +589,10 @@ module.exports = async (req, res) => {
             // Surface the QuickML failure reason when we fell back, so the
             // client (and logs) can diagnose instead of guessing.
             if (quickmlErrorDetail) payload.quickml_error = quickmlErrorDetail;
+
+            // Best-effort: archive this forecast into the Data Store log.
+            await logForecast(req, signals, note);
+
             sendJson(res, 200, payload);
             return;
         }

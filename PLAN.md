@@ -504,6 +504,65 @@ feature preserved and re-tested).
 
 ---
 
+## Phase 14: Final Submission Pass (wiring + honesty patches)
+**Status: ✓ COMPLETED**
+
+Deadline-driven pass: everything patchable before Oct 28 was done; the
+quota-dependent item (Nov 1 reset) was skipped per plan.
+
+### 14a. Storage provisioning — empirically proven Console-only
+- [x] Temporary admin `/provision` probe deployed; it exercised the exact
+  REST paths the SDK uses for list ops, with POST (create), across payload
+  variants and both credentials:
+  - **Data Store:** `POST /baas/v1/project/{id}/table` exists (format
+    errors, not 404) but the only format-valid body `{table_name}` is
+    rejected with **"invalid oauth scope to access this URL"** — function
+    tokens carry no schema-DDL scope, even as admin. Column-shaped bodies
+    fail format validation; `/data-table` 404s.
+  - **Stratus:** `POST /bucket` with `{bucket_name}` passes format but is
+    rejected with **"User needs to be in session when accessing Stratus
+    for the first time"** for both `user` and `admin` — creation needs an
+    interactive Console session.
+- [x] Probe removed from the shipped function; findings recorded here.
+
+### 14b. Integration wiring (ready, self-activating)
+- [x] **`POST /archive`** — accepts `{name, content}`, uploads to the
+  `isr-forecast-archive` bucket (`csv/<ts>-<name>`); until the bucket
+  exists it answers `{archived:false, reason}` honestly — verified live
+- [x] **`logForecast()`** — every predict writes its transition signals to
+  the `forecast_log` Data Store table (`timestamp`, `predicted_demand_kw`,
+  `grid_mode`, `alert`, `model_source`); failures are remembered per
+  container (`DATASTORE_LOG_STATE`) so warm requests pay **zero extra
+  latency** (predict still 200 in 0.23s) and the log activates by itself
+  the moment the table exists
+- [x] Dashboard: after each successful CSV import it archives in the
+  background and logs either "CSV archived to Stratus bucket" or
+  "Stratus archive skipped — bucket not provisioned yet (…)" to the
+  System Log — verified live
+- Activation (Console, ~2 min, NOT quota-bound): create bucket
+  `isr-forecast-archive` (Stratus) + table `forecast_log` with columns
+  timestamp/text, predicted_demand_kw/number, grid_mode/text, alert/text,
+  model_source/text; then redeploy the function. Zero code changes needed.
+
+### 14c. Honesty patches (visible holes)
+- [x] Header now tells the truth: model pill shows amber **"Fallback
+  Model"** (tooltip explains quota + Nov 1) whenever the last response
+  came from the heuristic, and flips back to green "QuickML Live" on its
+  own when QuickML recovers; API pill shows **API · OK / API · OFFLINE**
+  from real reachability. Wired into fetch, CSV, and manual flows.
+- [x] Skipped by design: anything requiring the Nov 1 quota reset.
+
+### 14d. Submission gate (all green)
+- [x] `pytest` → **39 passed** (fixed a real blocker: duplicate
+  `test_eval.py` basenames made bare `pytest` fail collection — added
+  `pytest.ini` with `testpaths = tests` + cleared `__pycache__`)
+- [x] `python test_eval.py` → **SUCCESS**
+- [x] Grader CLI `python predict.py --input starter_kit/sample_test_input.csv
+  --output predictions.csv` → 1000 rows written
+- [x] Browser: zero console errors; pills, CSV flow, archive logging verified
+
+---
+
 ## Dependencies
 
 ```txt

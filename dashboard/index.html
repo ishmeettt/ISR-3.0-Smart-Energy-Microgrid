@@ -324,7 +324,13 @@
             color: var(--text);
             white-space: nowrap;
         }
-        .api-pill { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+        .api-pill { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; transition: color 0.2s var(--ease), border-color 0.2s var(--ease), background 0.2s var(--ease); }
+        .api-pill.ok { color: var(--renewable); border-color: rgba(52, 211, 153, 0.35); background: rgba(52, 211, 153, 0.08); }
+        .api-pill.err { color: var(--danger); border-color: rgba(244, 63, 94, 0.45); background: rgba(244, 63, 94, 0.10); }
+        /* honest model source: amber fallback state when QuickML quota is out */
+        .live-pill.fallback { color: var(--solar); border-color: rgba(251, 191, 36, 0.45); background: rgba(251, 191, 36, 0.10); }
+        .live-pill.fallback .live-dot { background: var(--solar); box-shadow: none; animation: none; }
+        .live-pill #modelPillText { transition: color 0.2s var(--ease); }
         .live-dot, .status-dot {
             width: 8px; height: 8px; border-radius: 50%;
             background: var(--renewable);
@@ -1543,8 +1549,8 @@
             </div>
             <div class="topbar-right">
                 <div class="topbar-actions">
-                    <span class="live-pill"><span class="live-dot"></span> QuickML Live</span>
-                    <span class="api-pill" title="Backend endpoint">API · ADV I/O</span>
+                    <span class="live-pill" id="modelPill" title="Which model produced the last prediction"><span class="live-dot"></span><span id="modelPillText">QuickML Live</span></span>
+                    <span class="api-pill" id="apiPill" title="Backend endpoint status">API · ADV I/O</span>
                     <button class="btn btn-ghost theme-btn" id="themeToggle" onclick="toggleTheme()" title="Toggle light / dark theme" aria-label="Toggle theme">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
                     </button>
@@ -1863,6 +1869,26 @@
             renderLog();
         }
 
+        // ---------- Honest status pills (model source + API reachability) ----------
+        function setModelStatus(note) {
+            const pill = document.getElementById('modelPill');
+            const text = document.getElementById('modelPillText');
+            if (!pill || !text) return;
+            const fallback = /fallback/i.test(note || '');
+            pill.classList.toggle('fallback', fallback);
+            text.textContent = fallback ? 'Fallback Model' : 'QuickML Live';
+            pill.title = fallback
+                ? 'QuickML quota exhausted — predictions come from the built-in heuristic (resets Nov 1)'
+                : 'Predictions come from your trained QuickML decision tree';
+        }
+        function setApiStatus(ok) {
+            const pill = document.getElementById('apiPill');
+            if (!pill) return;
+            pill.classList.toggle('ok', !!ok);
+            pill.classList.toggle('err', !ok);
+            pill.textContent = ok ? 'API · OK' : 'API · OFFLINE';
+        }
+
         // ---------- Toast notifications (top-right, glass, auto-dismiss) ----------
         function showToast(message, type) {
             const wrap = document.getElementById('toastWrap');
@@ -2032,11 +2058,14 @@
                 predictionsData = times.map((t, i) => ({ timestamp: t, demand: preds[i] }));
                 logEvent('fetch', `24-hour forecast refreshed — ${preds.length} predictions (${data.note || 'unknown source'})` +
                     (data.summary ? `, ${data.summary.renewable_hours} renewable / ${data.summary.main_grid_hours} main grid / ${data.summary.overload_hours} overload` : ''));
+                setModelStatus(data.note);
+                setApiStatus(true);
                 if (!silent) showToast(`Forecast refreshed — ${preds.length} hours predicted`, 'ok');
             } catch (e) {
                 console.error('Failed to fetch predictions:', e);
                 logEvent('alert', `Forecast fetch failed: ${e.message}`);
                 if (chartLoader) chartLoader.classList.remove('show');
+                setApiStatus(false);
                 if (!silent) {
                     showToast('Forecast fetch failed: ' + e.message, 'err');
                     alert('Failed to fetch from API: ' + e.message);
@@ -2132,7 +2161,12 @@
                     updateDashboard();
                     console.log(`CSV: ${rows.length} rows scored via ${data.note}`, data.summary || '');
                     logEvent('csv', `Imported & scored "${file.name}" — ${rows.length} rows via ${data.note || 'API'}`);
+                    setModelStatus(data.note);
+                    setApiStatus(true);
                     showToast(`CSV scored via QuickML — ${rows.length} rows imported`, 'ok');
+                    // Best-effort server-side archive (Stratus) — activates by
+                    // itself once the bucket exists in the Console.
+                    archiveCsv(file.name, text);
                 } catch (err) {
                     console.error('CSV prediction failed:', err);
                     logEvent('alert', `CSV import failed: ${err.message}`);
@@ -2144,6 +2178,28 @@
             reader.readAsText(file);
             // Allow re-importing the same file later.
             event.target.value = '';
+        }
+
+        // Best-effort CSV archive to Stratus: fires after a successful import;
+        // the function reports `archived:false` (with a reason) until the bucket
+        // has been created in the Console.
+        function archiveCsv(name, content) {
+            const base = (document.getElementById('apiBase').value.trim() || DEFAULT_API)
+                .replace(/\/execute\/?$/, '');
+            fetch(base + '/archive', {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                body: JSON.stringify({ name: name, content: content.slice(0, 4000000) })
+            })
+                .then(r => r.json())
+                .then(a => {
+                    if (a && a.archived) {
+                        logEvent('csv', `CSV archived to Stratus bucket — csv/…-${name}`);
+                    } else {
+                        logEvent('csv', `Stratus archive skipped — bucket not provisioned yet (${(a && a.reason) || 'no bucket'})`);
+                    }
+                })
+                .catch(() => { /* archive is non-critical */ });
         }
 
         // ---------- Manual telemetry form ----------
@@ -2216,10 +2272,13 @@
                 // kW value counts up in the result card
                 animateNumber(box.querySelector('.mr-num'), pred, 2, 1000);
                 logEvent('manual', `${ts} → ${pred.toFixed(2)} kW · ${mode === 'renewable' ? 'Renewable Storage' : 'Main Grid'}${overload ? ' · OVERLOAD' : ''} (${data.note || 'API'})`);
+                setModelStatus(data.note);
+                setApiStatus(true);
                 showToast(`${pred.toFixed(2)} kW · ${mode === 'renewable' ? 'Renewable Storage' : 'Main Grid'}`, overload ? 'warn' : 'ok');
             } catch (err) {
                 console.error('Manual prediction failed:', err);
                 logEvent('alert', `Manual prediction failed: ${err.message}`);
+                if (err instanceof TypeError || /failed to fetch/i.test(err.message)) setApiStatus(false);
                 box.innerHTML = `<span class="mr-note">Prediction failed: ${err.message}</span>`;
                 showToast('Prediction failed: ' + err.message, 'err');
             } finally {
