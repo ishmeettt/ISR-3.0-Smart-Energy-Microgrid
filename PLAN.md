@@ -265,6 +265,65 @@
 
 ---
 
+## Phase 10: Problem-Statement Gap Closure & Submission Prep
+**Status: ✓ COMPLETED**
+
+### 10a. Predict function — batch safety + server-side transition controller
+- [x] Bounded-concurrency QuickML pool (25 in flight) + **bulk-first strategy**:
+  one authenticated request with all rows via the SDK's requester (the SDK's
+  `predict()` rejects arrays client-side), per-row pool as fallback
+  - Verified: **1000 rows → HTTP 200 in 9.0s**, 0 non-finite values
+- [x] **Server-side transition controller** (§6): response now includes
+  `signals[]` (`timestamp`, `hour`, `predicted_demand_kw`, `grid_mode`,
+  `alert`) + `summary` (`renewable_hours`, `main_grid_hours`, `overload_hours`)
+- [x] Hour parsed from the timestamp **string** (no `Date` → immune to server tz)
+- [x] Local assertion suite: exact 160 kW → main_grid, >160 → renewable,
+  ≥200 → overload, 18–22 **inclusive** → renewable, 23 → main_grid ✓
+- [x] `quickml_error` surfaced in the response when falling back (diagnosability)
+
+### 10b. predict.py — wired to the live model (35% accuracy criterion)
+- [x] `QUICKML_ENDPOINT_URL` default = deployed function `/execute` URL;
+  overridable via `QUICKML_ENDPOINT_URL` env var or `--quickml-url`
+- [x] Batch payload (all rows, one request), timeout 10s → 60s
+- [x] Warns on stderr when the API reports fallback instead of QuickML
+- [x] `python test_eval.py` → **SUCCESS**; `pytest` → **35 passed**
+
+### 10c. Dashboard — ingestion + SOC (Requirements 2 & dashboard spec)
+- [x] **CSV import now scored through QuickML**: parses feature columns by
+  header name and POSTs them to the function (was plotting raw column 4);
+  still accepts pre-scored `timestamp,target_demand_kw` files
+- [x] **Manual telemetry form**: timestamp + 3 weather fields → live predict;
+  result shows kW, server-side grid mode, overload pill, model note
+- [x] **Real battery SOC simulation**: starts 87%, −6%/h discharging in
+  renewable mode, +4%/h recharging on main grid, clamped 0–100; label shows
+  autonomy / time-to-full for the current hour
+- [x] First paint fetches the **live** forecast (sample data only as fallback)
+- [x] Verified in browser: form → 180 kW / Renewable / ✓, CSV → 3 rows
+  scored, **zero console errors**, POST → 200
+
+### 10d. Submission deliverables (§9)
+- [x] `git init` + commit (146 files) — **secret scan clean**: no endpoint
+  key, no OAuth token, no `node_modules/`, no `.catalystrc`, no logs
+- [x] `.gitignore` protects credentials; `catalyst-config.example.json`
+  template documents the only required secret (`QUICKML_ENDPOINT_KEY`)
+- [x] `README.md` rewritten: architecture diagram, setup steps, env-var
+  table, transition rules, live URLs, test results (was a copy of the PDF)
+- [x] `ISR_Forceast_Submission.zip` built via `git archive` (231 files,
+  552 KB) — verified: no leaked secrets, all required files present
+
+### ⚠️ Known issue: QuickML prediction quota exhausted
+The endpoint returns `PREDICTION_USAGE_LIMIT_EXCEEDED` — the account's free
+tier is **500 prediction calls/month** (pay-as-you-go), reset monthly, and it
+was consumed by integration testing. Until it resets or the plan is upgraded:
+- The function falls back to the heuristic model and says so via `note` /
+  `quickml_error` (the app never breaks)
+- The **bulk-first** design means a full 1000-row scoring run costs **1** API
+  call instead of 1000 once quota is available — this is the fix for the
+  grading run (`predict.py` on the hidden test set)
+- `test_eval.py` still passes (contract check doesn't require QuickML)
+
+---
+
 ## Dependencies
 
 ```txt
@@ -364,6 +423,7 @@ Based on the problem statement and Catalyst skills, here's the target architectu
 | 7. QuickML Integration | ✓ Complete | Endpoint published; function returns live model predictions |
 | 8. Dashboard (Slate) | ✓ Complete | CORS fixed; end-to-end verified (see Live URLs below) |
 | 9. UI Redesign | ✓ Complete | Emerald/charcoal theme, amber + sky accents, modern type |
+| 10. Gap closure + submission | ✓ Complete | Server-side signals, predict.py wired, CSV/form/SOC, repo + zip (see Phase 10) |
 
 ## Live Deployment URLs
 
@@ -377,7 +437,10 @@ Based on the problem statement and Catalyst skills, here's the target architectu
 
 ```
 test_eval.py: SUCCESS
-pytest: 35 passed in 2.36s
+pytest: 35 passed in 3.06s
+Function: 1000-row batch → HTTP 200 in 9.0s (bulk path, 0 non-finite)
+Browser: zero console errors · manual form + CSV import verified live
+Git: 146 files committed · secret scan clean · ISR_Forceast_Submission.zip (231 files)
 ```
 
 ## Questions for User
