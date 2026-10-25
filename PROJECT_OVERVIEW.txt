@@ -1,0 +1,82 @@
+ISR 3.0 - SMART ENERGY MICROGRID & DEMAND FORECASTING ENGINE
+Project summary: what it is and how it works (brief)
+=====================================================
+
+WHAT IT IS
+----------
+ISR 3.0 is a full-stack energy management application built on the Zoho
+Catalyst platform. It forecasts hourly electricity demand for the next
+24 hours using a machine-learning model, then automatically decides when
+a microgrid should switch between Main Grid power and Renewable Battery
+Storage - and raises an alert before the system overloads. Built for the
+HackSphere 3.0 hackathon.
+
+HOW IT WORKS (end to end)
+-------------------------
+1. The dashboard builds 24 hourly input rows for the next 24 hours
+   (timestamp + ambient temperature, humidity, solar irradiance - a
+   representative daily weather profile, since no live weather feed
+   exists in the kit).
+2. Those rows are POSTed to a Zoho Catalyst Advanced I/O function
+   ("predict"). One bulk call, even for 1000 rows.
+3. The function cleans and validates the rows (type coercion, range
+   clamping, missing-value defaults), then scores them with the QuickML
+   decision-tree regression model trained on the provided telemetry
+   dataset (target: target_demand_kw).
+4. The function runs the transition controller server-side on the same
+   pass and returns predictions + per-hour signals + a summary.
+5. The dashboard renders everything: forecast chart, table, KPI cards,
+   battery state-of-charge simulation, alerts, and a system event log.
+
+THE TRANSITION RULES (evaluated per forecast hour)
+--------------------------------------------------
+- demand > 160 kW  OR  hour is 18:00-22:00 (inclusive)  -> Renewable
+  Storage Mode
+- otherwise (<= 160 kW and outside the peak window)      -> Main Grid
+- demand >= 200 kW                                       -> Critical
+  Overload Alert (independent of the mode)
+
+WHAT'S ON THE SCREEN
+--------------------
+- Sticky control-room header: QuickML/model status pills, API status,
+  Refresh Forecast, Import CSV, theme toggle
+- Critical overload banner (animated, dismissible, red edge vignette)
+- 4 KPI cards: current grid mode, predicted demand (with sparkline),
+  battery state of charge, peak-hours count
+- 24-hour forecast chart: gradient area, 160/200 kW threshold lines,
+  peak-hours band, NOW marker, legend toggles, glass tooltip
+- Forecast table: filter tabs (All / Renewable / Main Grid / Overload),
+  per-hour grid-mode pills and status chips
+- Manual telemetry form: one hand-entered reading through the same
+  live pipeline (sliders + units), result card with counted-up value
+- Terminal-style system log: forecast fetches, CSV imports, manual
+  predictions, alerts raised/cleared (persisted, capped)
+- Developer tools: sample data, simulate overload, clear alert
+- Nova virtual assistant: Groq-backed chat that auto-opens on load and
+  explains any part of the site (API key stays server-side only)
+
+UNDER THE HOOD
+--------------
+- Frontend: static HTML/CSS/JS + Chart.js, hosted on Catalyst Slate
+  (https://dashboard-ejcdhurx.onslate.in)
+- Backend: Catalyst Advanced I/O Node.js function - prediction,
+  transition controller, CSV archive route, forecast log, assistant
+- Model: Catalyst QuickML pipeline "ISR", Decision-Tree regression
+  (features: ambient_temp_c, humidity_pct, solar_irradiance_wm2)
+- Assistant: Groq (qwen3.8-27b) called from the same function
+- Local Python pipeline (src/) for development and evaluation
+- Quality gates: 39 pytest tests pass, test_eval.py prints SUCCESS,
+  1000-row batch scored in ~9 seconds through one API call
+
+CURRENT STATE / HONEST NOTES
+-----------------------------
+- QuickML free tier (500 predictions/month) is currently exhausted, so
+  the function serves a built-in heuristic fallback and SAYS SO in every
+  response, in the system log, and in the header pill ("Fallback
+  Model"). It switches back to the trained model automatically when the
+  quota resets (Nov 1) or when trial credits are applied - no code
+  change.
+- Stratus CSV archive and Data Store forecast log are fully wired and
+  self-activating: creating the bucket (isr-forecast-archive) and table
+  (forecast_log) in the Catalyst Console turns them on with zero code
+  changes. Until then the archive reports its skip honestly in the log.
