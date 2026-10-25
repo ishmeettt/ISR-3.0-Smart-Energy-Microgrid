@@ -27,6 +27,7 @@ from predict import (
 )
 from preprocessing import (
     validate_input_dataframe,
+    clean_input_dataframe,
     extract_time_features,
     create_weather_features,
     prepare_features,
@@ -263,6 +264,62 @@ class TestPreprocessing:
 
         assert not df['ambient_temp_c'].isnull().any(), \
             "Missing value should be filled"
+
+    def test_clean_input_dataframe_repairs_dirty_values(self):
+        """Cleaning coerces strings, imputes NaN, clamps ranges (requirement 2)."""
+        df = pd.DataFrame({
+            'timestamp': ['2024-01-01 09:00:00', '2024-01-01 10:00:00'],
+            'ambient_temp_c': ['31.5', None],
+            'humidity_pct': ['n/a', 55.0],
+            'solar_irradiance_wm2': [9999.0, -100.0],  # out of range
+        })
+
+        out = clean_input_dataframe(df)
+
+        assert out['ambient_temp_c'].dtype.kind == 'f'
+        assert out['ambient_temp_c'].notna().all(), "NaN temp must be imputed"
+        assert out['humidity_pct'].notna().all(), "Non-numeric humidity must be imputed"
+        assert out['solar_irradiance_wm2'].max() <= 1500.0, "Solar must clamp to valid range"
+        assert out['solar_irradiance_wm2'].min() >= 0.0, "Negative solar must clamp to 0"
+        # Original frame untouched
+        assert df['ambient_temp_c'].isna().sum() == 1
+
+    def test_clean_input_dataframe_normalizes_timestamps(self):
+        """Cleaning normalizes timestamps and repairs unparsable ones."""
+        df = pd.DataFrame({
+            'timestamp': ['2024-06-01T14:30:00', 'not-a-date'],
+            'ambient_temp_c': [25.0, 26.0],
+            'humidity_pct': [50.0, 51.0],
+            'solar_irradiance_wm2': [400.0, 410.0],
+        })
+
+        out = clean_input_dataframe(df)
+
+        assert out['timestamp'].iloc[0] == '2024-06-01 14:30:00', \
+            "ISO timestamp should normalize to training schema format"
+        # Unparsable row is repaired (neighbor-filled), not NaN/Drop
+        assert len(out) == 2
+        assert out['timestamp'].str.match(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$').all()
+
+    def test_clean_input_dataframe_missing_column_raises(self):
+        """Cleaning still fails fast on a missing required column."""
+        df = pd.DataFrame({'timestamp': ['2024-01-01 00:00:00']})
+        with pytest.raises(ValueError, match="Missing required column"):
+            clean_input_dataframe(df)
+
+    def test_predict_cleans_before_api_payload(self):
+        """predict() with dirty input returns finite predictions (no NaN crash)."""
+        df = pd.DataFrame({
+            'timestamp': ['2024-01-01 09:00:00'] * 5,
+            'ambient_temp_c': [30.0, None, '28.5', np.nan, 22.0],
+            'humidity_pct': ['N/A', 55.0, 60.0, None, 70.0],
+            'solar_irradiance_wm2': [500.0, -50, 99999, 0, 100.0],
+        })
+
+        preds = predict(df)
+
+        assert len(preds) == 5, "One prediction per input row"
+        assert np.isfinite(preds).all(), "Dirty input must still yield finite predictions"
 
     def test_extract_time_features(self):
         """Test time feature extraction."""

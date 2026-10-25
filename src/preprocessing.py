@@ -51,6 +51,58 @@ def validate_input_dataframe(df: pd.DataFrame) -> bool:
     return True
 
 
+def clean_input_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Clean and standardize raw telemetry before validation/prediction
+    (problem statement requirement 2: "clean and validate data, handle
+    missing values, and prepare feature vectors").
+
+    Never fails on dirty *values* — only on a missing required *column*:
+    - coerces numeric columns ("31.5" strings, blanks, "N/A" → float/NaN)
+    - fills NaN with the column median (or a sane default if all values bad)
+    - clamps to physically valid ranges (same bounds validate uses)
+    - normalizes timestamps to "YYYY-MM-DD HH:MM:SS"; unparsable timestamps
+      are forward/back-filled from neighbors, else defaulted to epoch day
+
+    Returns a cleaned copy; the input frame is not modified.
+    """
+    required = ['timestamp', 'ambient_temp_c', 'humidity_pct', 'solar_irradiance_wm2']
+    for col in required:
+        if col not in df.columns:
+            raise ValueError(f"Missing required column: {col}")
+
+    out = df.copy()
+
+    # --- Numeric coercion + missing-value imputation ---
+    numeric_defaults = {
+        'ambient_temp_c': 20.0,
+        'humidity_pct': 60.0,
+        'solar_irradiance_wm2': 0.0,
+    }
+    numeric_ranges = {
+        'ambient_temp_c': (-50.0, 60.0),
+        'humidity_pct': (0.0, 100.0),
+        'solar_irradiance_wm2': (0.0, 1500.0),
+    }
+    for col, default in numeric_defaults.items():
+        s = pd.to_numeric(out[col], errors='coerce')
+        fill = s.median()
+        if pd.isna(fill):
+            fill = default
+        s = s.fillna(fill)
+        lo, hi = numeric_ranges[col]
+        out[col] = s.clip(lo, hi)
+
+    # --- Timestamp normalization ---
+    ts = pd.to_datetime(out['timestamp'], errors='coerce')
+    if ts.isna().any():
+        ts = ts.ffill().bfill()
+        ts = ts.fillna(pd.Timestamp('2024-01-01 00:00:00'))
+    out['timestamp'] = ts.dt.strftime('%Y-%m-%d %H:%M:%S')
+
+    return out
+
+
 def extract_time_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Extract time-based features from timestamp column.

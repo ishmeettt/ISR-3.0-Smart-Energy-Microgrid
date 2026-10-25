@@ -492,6 +492,43 @@
         .mr-value .unit { font-size: 0.85rem; color: var(--muted); margin-left: 4px; }
         .mr-note { font-size: 0.78rem; color: var(--muted); font-style: italic; }
 
+        /* ---------- System log ---------- */
+        .log-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .sys-log {
+            margin-top: 14px;
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--bg);
+            padding: 10px 12px;
+            font-family: 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+            font-size: 0.76rem;
+            line-height: 1.7;
+        }
+        .sys-log:empty::after {
+            content: 'No events yet — the log records fetches, alerts, imports and manual predictions.';
+            color: var(--muted);
+            font-style: italic;
+        }
+        .log-line { display: flex; gap: 10px; align-items: baseline; animation: riseIn 0.3s ease both; }
+        .log-time { color: var(--muted); flex-shrink: 0; }
+        .log-src {
+            flex-shrink: 0;
+            font-weight: 700;
+            font-size: 0.66rem;
+            letter-spacing: 0.05em;
+            padding: 1px 7px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+        }
+        .log-src.fetch  { color: var(--emerald); border-color: var(--emerald); }
+        .log-src.csv    { color: var(--sky); border-color: var(--sky); }
+        .log-src.manual { color: var(--amber-deep, var(--amber)); border-color: var(--amber); }
+        .log-src.alert  { color: var(--rose); border-color: var(--rose); }
+        .log-src.system { color: var(--muted); }
+        .log-msg { color: var(--text); word-break: break-word; }
+
         .loading { text-align: center; padding: 30px; color: var(--muted); font-size: 0.9rem; }
 
         footer {
@@ -652,6 +689,14 @@
         </div>
 
         <div class="test-panel" style="margin-top: 18px;">
+            <div class="log-head">
+                <div class="panel-title">🧾 System Log</div>
+                <button class="btn btn-ghost" onclick="clearLog()" style="padding: 6px 14px; font-size: 0.8rem;">Clear</button>
+            </div>
+            <div id="sysLog" class="sys-log" aria-live="polite"></div>
+        </div>
+
+        <div class="test-panel" style="margin-top: 18px;">
             <div class="panel-title">⚙️ Quick Test Controls</div>
             <div class="actions">
                 <button class="btn btn-ghost" onclick="loadSampleData()">📊 Load Sample Predictions</button>
@@ -673,6 +718,47 @@
         const PEAK_HOUR_END = 22;
         const DEMAND_RENEWABLE_THRESHOLD = 160;
         const DEMAND_OVERLOAD_THRESHOLD = 200;
+
+        // ---------- System log (architecture: "system logs") ----------
+        // In-memory + localStorage-backed event log: forecasts, alerts, CSV
+        // imports, manual predictions. Capped so it can't grow unbounded.
+        const LOG_CAP = 60;
+        let systemLog = [];
+        try {
+            systemLog = JSON.parse(localStorage.getItem('hs-log') || '[]');
+            if (!Array.isArray(systemLog)) systemLog = [];
+        } catch (e) { systemLog = []; }
+
+        function logEvent(source, message) {
+            const t = new Date();
+            const p = (n) => String(n).padStart(2, '0');
+            systemLog.unshift({
+                time: `${p(t.getHours())}:${p(t.getMinutes())}:${p(t.getSeconds())}`,
+                src: source,
+                msg: message
+            });
+            if (systemLog.length > LOG_CAP) systemLog.length = LOG_CAP;
+            try { localStorage.setItem('hs-log', JSON.stringify(systemLog)); } catch (e) { /* private mode */ }
+            renderLog();
+        }
+
+        function renderLog() {
+            const el = document.getElementById('sysLog');
+            if (!el) return;
+            el.innerHTML = systemLog.map(e =>
+                `<div class="log-line">` +
+                `<span class="log-time">${e.time}</span>` +
+                `<span class="log-src ${e.src}">${e.src.toUpperCase()}</span>` +
+                `<span class="log-msg">${String(e.msg).replace(/</g, '&lt;')}</span>` +
+                `</div>`
+            ).join('');
+        }
+
+        function clearLog() {
+            systemLog = [];
+            try { localStorage.removeItem('hs-log'); } catch (e) { /* private mode */ }
+            renderLog();
+        }
 
         // ---------- Theme ----------
         function cssVar(name) {
@@ -805,8 +891,11 @@
                 }
                 // Map each numeric prediction back onto its hour's timestamp.
                 predictionsData = times.map((t, i) => ({ timestamp: t, demand: preds[i] }));
+                logEvent('fetch', `24-hour forecast refreshed — ${preds.length} predictions (${data.note || 'unknown source'})` +
+                    (data.summary ? `, ${data.summary.renewable_hours} renewable / ${data.summary.main_grid_hours} main grid / ${data.summary.overload_hours} overload` : ''));
             } catch (e) {
                 console.error('Failed to fetch predictions:', e);
+                logEvent('alert', `Forecast fetch failed: ${e.message}`);
                 if (!silent) alert('Failed to fetch from API: ' + e.message);
                 return;
             }
@@ -894,8 +983,10 @@
                     predictionsData = rows.map((r, i) => ({ timestamp: r.timestamp, demand: preds[i] }));
                     updateDashboard();
                     console.log(`CSV: ${rows.length} rows scored via ${data.note}`, data.summary || '');
+                    logEvent('csv', `Imported & scored "${file.name}" — ${rows.length} rows via ${data.note || 'API'}`);
                 } catch (err) {
                     console.error('CSV prediction failed:', err);
+                    logEvent('alert', `CSV import failed: ${err.message}`);
                     alert('CSV prediction failed: ' + err.message);
                 }
             };
@@ -969,8 +1060,10 @@
                         ? '<span class="pill pill-rose">🚨 Critical Overload</span>'
                         : '<span class="pill-ok">✓ Normal</span>'}
                     <span class="mr-note">${data.note || ''}</span>`;
+                logEvent('manual', `${ts} → ${pred.toFixed(2)} kW · ${mode === 'renewable' ? 'Renewable Storage' : 'Main Grid'}${overload ? ' · OVERLOAD' : ''} (${data.note || 'API'})`);
             } catch (err) {
                 console.error('Manual prediction failed:', err);
+                logEvent('alert', `Manual prediction failed: ${err.message}`);
                 box.innerHTML = `<span class="mr-note">Prediction failed: ${err.message}</span>`;
             }
             return false;
@@ -1080,8 +1173,14 @@
                     .map(p => formatHour(p.timestamp)).join(', ');
                 document.getElementById('alertMessage').textContent =
                     `Demand exceeds 200 kW threshold at: ${overloadHours}. Immediate action required.`;
+                if (!alertBanner.classList.contains('show')) {
+                    logEvent('alert', `Critical overload raised — demand ≥ 200 kW at ${overloadHours}`);
+                }
                 alertBanner.classList.add('show');
             } else {
+                if (alertBanner.classList.contains('show')) {
+                    logEvent('system', 'Overload alert cleared — all hours below 200 kW');
+                }
                 alertBanner.classList.remove('show');
             }
 
@@ -1274,8 +1373,13 @@
         // when the API is unreachable (no alert on load).
         window.onload = async function () {
             setDefaultTimestamp();
+            logEvent('system', 'Dashboard initialized — requesting live 24-hour forecast');
             await fetchPredictions(true);
-            if (!predictionsData.length) loadSampleData();
+            if (!predictionsData.length) {
+                logEvent('alert', 'Live API unreachable on load — showing sample data');
+                loadSampleData();
+            }
+            renderLog();
         };
     </script>
 </body>

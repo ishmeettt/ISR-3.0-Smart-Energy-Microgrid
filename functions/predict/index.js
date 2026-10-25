@@ -246,6 +246,54 @@ function fallbackPredictions(rows) {
     });
 }
 
+// Column defaults for sanitation: training-data medians / physically valid
+// midpoints, used only when an incoming value is missing or non-numeric.
+const COLUMN_DEFAULTS = {
+    ambient_temp_c: 20.0,
+    humidity_pct: 60.0,
+    solar_irradiance_wm2: 0.0
+};
+
+/**
+ * Requirement 2 (Data Ingestion & Cleanup): coerce incoming rows to the
+ * training schema before QuickML sees them — numeric fields become finite
+ * numbers (missing/bad -> column default, clamped to valid ranges), and a
+ * missing/unparsable timestamp falls back to the current hour. Rows without
+ * any usable structure at all are dropped.
+ */
+function sanitizeRows(rawRows) {
+    const cleaned = [];
+    for (const r of rawRows) {
+        if (!r || typeof r !== 'object') continue;
+
+        const num = (v, key) => {
+            const n = typeof v === 'number' ? v : parseFloat(v);
+            const val = Number.isFinite(n) ? n : COLUMN_DEFAULTS[key];
+            if (key === 'ambient_temp_c') return Math.max(-50, Math.min(60, val));
+            if (key === 'humidity_pct') return Math.max(0, Math.min(100, val));
+            return Math.max(0, Math.min(1500, val)); // solar W/m²
+        };
+
+        let timestamp = typeof r.timestamp === 'string' && r.timestamp.trim()
+            ? r.timestamp.trim()
+            : null;
+        if (timestamp === null || hourFromTimestamp(timestamp) === null) {
+            const d = new Date();
+            const p = (x) => String(x).padStart(2, '0');
+            timestamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ` +
+                `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+        }
+
+        cleaned.push({
+            timestamp,
+            ambient_temp_c: num(r.ambient_temp_c, 'ambient_temp_c'),
+            humidity_pct: num(r.humidity_pct, 'humidity_pct'),
+            solar_irradiance_wm2: num(r.solar_irradiance_wm2, 'solar_irradiance_wm2')
+        });
+    }
+    return cleaned;
+}
+
 module.exports = async (req, res) => {
     try {
         console.log('Prediction function invoked');
@@ -281,6 +329,30 @@ module.exports = async (req, res) => {
             return;
         }
 
+        // Diagnostics: what storage resources exist in this project?
+        // (Stratus buckets + Data Store tables — used to wire CSV archiving
+        // and forecast logging.) Read-only.
+        if (method === 'GET' && path === '/resources') {
+            const out = { stratus: null, datastore: null };
+            try {
+                const app = catalyst.initialize(req, { scope: 'admin' });
+                try {
+                    out.stratus = await app.stratus().listBuckets();
+                } catch (e) {
+                    out.stratus = { error: String(e && e.message || e) };
+                }
+                try {
+                    out.datastore = await app.datastore().getAllTables();
+                } catch (e) {
+                    out.datastore = { error: String(e && e.message || e) };
+                }
+                sendJson(res, 200, out);
+            } catch (e) {
+                sendJson(res, 200, { stratus: { error: e.message }, datastore: { error: e.message } });
+            }
+            return;
+        }
+
         if (method === 'POST' && path === '/') {
             const body = await getBody(req);
 
@@ -289,12 +361,19 @@ module.exports = async (req, res) => {
                 return;
             }
 
+            // Clean/validate before anything else sees the rows (requirement 2).
+            const rows = sanitizeRows(body.data);
+            if (rows.length === 0) {
+                sendJson(res, 400, { error: 'No usable rows after cleaning input data' });
+                return;
+            }
+
             let predictions;
             let note;
             let quickmlErrorDetail;
 
             try {
-                const quickmlResult = await callQuickMl(req, body.data);
+                const quickmlResult = await callQuickMl(req, rows);
                 if (quickmlResult !== null) {
                     predictions = quickmlResult;
                     note = 'From QuickML trained model';
@@ -304,12 +383,12 @@ module.exports = async (req, res) => {
             } catch (quickmlError) {
                 console.warn('QuickML call failed, using fallback model:', quickmlError.message);
                 quickmlErrorDetail = quickmlError.message;
-                predictions = fallbackPredictions(body.data);
+                predictions = fallbackPredictions(rows);
                 note = 'Using fallback model';
             }
 
             // Server-side transition controller (grid mode + overload per hour)
-            const { signals, summary } = buildTransitionSignals(body.data, predictions);
+            const { signals, summary } = buildTransitionSignals(rows, predictions);
 
             const payload = {
                 predictions: predictions,

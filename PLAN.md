@@ -324,6 +324,46 @@ was consumed by integration testing. Until it resets or the plan is upgraded:
 
 ---
 
+## Phase 11: Data Cleanup, System Log & Resource Audit
+**Status: ✓ COMPLETED**
+
+### 11a. Requirement 2 — clean & validate data (both sides of the wire)
+- [x] `src/preprocessing.py` → `clean_input_dataframe()`:
+  numeric coercion ("31.5", "N/A" → float/NaN), median imputation, range
+  clamping (temp −50..60, humidity 0..100, solar 0..1500), timestamp
+  normalization to `YYYY-MM-DD HH:MM:SS` with neighbor-repair for
+  unparsable values; fails only on a missing required column
+- [x] `src/predict.py` now cleans **before** building the API payload — a
+  NaN in the input previously serialized as invalid JSON and broke the call
+- [x] Function `sanitizeRows()` — same rules server-side: string→number,
+  missing→column default, range clamping, missing/bad timestamp → current
+  hour, junk rows dropped (400 only if zero usable rows)
+- [x] 4 new tests (dirty values, timestamp normalization, missing column,
+  dirty-input predict) → **pytest 39 passed**; `test_eval.py` → SUCCESS
+
+### 11b. System logs (architecture table: "system logs")
+- [x] 🧾 System Log panel on the dashboard — monospace feed with
+  color-coded source chips (FETCH / CSV / MANUAL / ALERT / SYSTEM)
+- [x] Events wired: init + live forecast fetch (rows, model note, server
+  summary), fetch failures, CSV import scored via QuickML, manual
+  predictions (kW/mode/overload), overload raised **and** cleared
+- [x] Persisted to `localStorage['hs-log']`, capped at 60 entries, Clear
+  button, HTML-escaped messages
+- [x] Verified live: 4 event types rendering, **zero console errors**
+
+### 11c. Resource audit — Stratus & Data Store
+- [x] Added read-only `GET /resources` to the function (admin-scope probe)
+- [x] Result: `stratus: []`, `datastore: []` — **no buckets, no tables exist**
+- [x] Research (web) confirmed: Catalyst exposes **no documented REST/SDK
+  create-table or create-bucket API** — creation is Console-only (or via
+  the `CatalystbyZoho_*` MCP tools, which are not connected in this agent)
+- Consequence: the CSV→Stratus archive and forecast→Data Store logging
+  integrations are **blocked on resource creation** (Console click or MCP
+  setup), not on code. Everything else runs today; the system-log panel
+  covers the "system logs" display requirement in the meantime.
+
+---
+
 ## Dependencies
 
 ```txt
@@ -424,6 +464,7 @@ Based on the problem statement and Catalyst skills, here's the target architectu
 | 8. Dashboard (Slate) | ✓ Complete | CORS fixed; end-to-end verified (see Live URLs below) |
 | 9. UI Redesign | ✓ Complete | Emerald/charcoal theme, amber + sky accents, modern type |
 | 10. Gap closure + submission | ✓ Complete | Server-side signals, predict.py wired, CSV/form/SOC, repo + zip (see Phase 10) |
+| 11. Cleanup + system log + audit | ✓ Complete | Input cleaning both sides, System Log panel, Stratus/DataStore audit (see Phase 11) |
 
 ## Live Deployment URLs
 
@@ -437,7 +478,7 @@ Based on the problem statement and Catalyst skills, here's the target architectu
 
 ```
 test_eval.py: SUCCESS
-pytest: 35 passed in 3.06s
+pytest: 39 passed in 13.38s
 Function: 1000-row batch → HTTP 200 in 9.0s (bulk path, 0 non-finite)
 Browser: zero console errors · manual form + CSV import verified live
 Git: 146 files committed · secret scan clean · ISR_Forceast_Submission.zip (231 files)

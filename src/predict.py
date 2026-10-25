@@ -19,11 +19,19 @@ import pandas as pd
 import requests
 
 try:
-    from .preprocessing import prepare_features, validate_input_dataframe
+    from .preprocessing import (
+        prepare_features,
+        validate_input_dataframe,
+        clean_input_dataframe,
+    )
     from .transition import process_forecast_from_df
 except ImportError:
     # When run as script or from tests
-    from preprocessing import prepare_features, validate_input_dataframe
+    from preprocessing import (
+        prepare_features,
+        validate_input_dataframe,
+        clean_input_dataframe,
+    )
     from transition import process_forecast_from_df
 
 # Published QuickML-backed API (Catalyst Advanced I/O function that calls the
@@ -76,20 +84,29 @@ def predict(input_df: pd.DataFrame) -> np.ndarray:
     Raises:
         ValueError: If input DataFrame is invalid or missing required columns.
     """
-    # Validate and prepare features
+    # Clean FIRST (requirement 2): coerce numerics, impute missing values,
+    # clamp ranges, normalize timestamps. Only a missing required column
+    # raises; dirty values are repaired so the API payload is always
+    # JSON-serializable (NaN would otherwise serialize as invalid JSON).
     try:
-        validated_df = input_df.copy()
-        validate_input_dataframe(validated_df)
-        features_df = prepare_features(validated_df, add_derived=True)
+        cleaned_df = clean_input_dataframe(input_df)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        raise
+
+    # Validate and prepare features from the cleaned copy
+    try:
+        validate_input_dataframe(cleaned_df)
+        features_df = prepare_features(cleaned_df, add_derived=True)
     except ValueError as e:
         print(f"Warning: Input validation issue - {e}", file=sys.stderr)
-        # Continue with original data
-        features_df = prepare_features(input_df.copy(), add_derived=True)
+        # Continue with cleaned data (ranges already clamped by cleaning)
+        features_df = prepare_features(cleaned_df.copy(), add_derived=True)
 
     # Call the published QuickML-backed API (one batch request for all rows).
     if QUICKML_ENDPOINT_URL:
         try:
-            payload = {"data": input_df.to_dict(orient="records")}
+            payload = {"data": cleaned_df.to_dict(orient="records")}
             response = requests.post(
                 QUICKML_ENDPOINT_URL,
                 json=payload,
