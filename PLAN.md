@@ -411,6 +411,69 @@ full site — without ever exposing an API key to the browser.
 
 ---
 
+## Phase 13: Control-Room UI Redesign
+**Status: ✓ COMPLETED**
+
+Full visual overhaul of the dashboard (visuals only — every ID, JS hook and
+feature preserved and re-tested).
+
+### 13a. Design system
+- [x] New `:root` token block per the redesign spec: `--bg #070B14`,
+  `--bg-elevated #0E1626`, `--renewable #34D399`, `--solar #FBBF24`,
+  `--storage #22D3EE`, `--main-grid #818CF8`, `--danger #F43F5E`,
+  `--warning #FB923C`, primary gradient cyan→green, danger gradient
+  red→orange. Legacy tokens (`--emerald`, `--sky`, …) kept as literal
+  aliases so the chart JS (`cssVar`) keeps working unchanged
+- [x] Light palette (bg `#F4F7FB`) with the same accent set
+- [x] Typography: Space Grotesk headings, JetBrains Mono for every number,
+  timestamp and the log (`tabular-nums`)
+
+### 13b. Chrome & layout
+- [x] Animated background: 3 slow blurred orbs (cyan/indigo/green, ~15%)
+  + dot-grid overlay
+- [x] Sticky glass header with a flowing energy-pulse line on its bottom
+  edge; gradient bolt logo in a glowing square; QuickML Live + API pills
+- [x] Layout: KPI row → chart → table (2/3) + telemetry (1/3)… as spec'd
+  where the original flow allowed; fully responsive 4→2→1
+
+### 13c. Components
+- [x] All emoji icons replaced with inline SVG (1.7–1.9px stroke, Lucide
+  style); zero emoji remain in the file (verified by regex scan)
+- [x] KPI cards: colored top-edge glow, tinted icon squares, count-up
+  numbers (existing `animateNumber`), pulsing mode badge, SOC bar with
+  shimmer sweep + green/amber/red thresholds, 24h sparkline canvas
+- [x] Chart: gradient area fill, faint grid only, peak-hours band, NOW
+  marker with pulsing ring, dashed 160/200 kW lines with right-edge label
+  chips, red tint above 200 kW, crosshair, glass tooltip, 1.2s left-to-
+  right draw-in, legend pills that toggle series, skeleton shimmer loader
+- [x] Table: sticky header, zebra rows, hover accent bar, mono values,
+  inline demand bars, colored pills (Overload pulses), 30ms stagger,
+  designed empty state, All/Renewable/Main Grid/Overload filter tabs with
+  sliding underline + arrow-key support
+- [x] Alert: spring slide-down + first-show shake, danger gradient glow,
+  animated icon, dismiss button, pulsing red page vignette while active
+- [x] Telemetry: icons + unit suffixes (°C/%/W/m²), synced range sliders,
+  spinner while predicting, animated result card, toasts
+- [x] System Log: darker terminal surface, mono, colored [FETCH/CSV/
+  MANUAL/ALERT/SYSTEM] tags, slide-in, blinking cursor
+- [x] Dev tools: "Developer tools" label, collapsible section, danger/
+  success/neutral segmented buttons
+- [x] Nova: gradient FAB with pulsing ring + notification dot, panel
+  scale+fade from the button, glass bubbles, online dot, pill suggestions
+- [x] Toasts (glass, top-right, auto-dismiss) on refresh/CSV/manual
+  success & failure
+- [x] Favicon (bolt), meta theme-color, custom scrollbars, ::selection,
+  focus rings, reduced-motion guard, light parallax tilt on KPI cards
+
+### 13d. Verification (local server + deployed Slate)
+- [x] Refresh, CSV import (3 rows scored via function), manual predict,
+  alert show/dismiss, sample data, simulate overload, filter tabs,
+  legend toggles, sliders, dev-tools collapse, theme toggle, Nova
+  (auto-open + greeting + chips) — all pass
+- [x] Zero console errors on both local and live site
+
+---
+
 ## Dependencies
 
 ```txt
