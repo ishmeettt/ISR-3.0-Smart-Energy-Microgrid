@@ -96,8 +96,6 @@
         body {
             font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
             background: var(--bg);
-            background-image: radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-            background-size: 28px 28px;
             color: var(--text);
             min-height: 100vh;
             line-height: 1.5;
@@ -105,9 +103,7 @@
             overflow-x: hidden;
             transition: background 0.35s ease, color 0.35s ease;
         }
-        :root[data-theme="light"] body {
-            background-image: radial-gradient(rgba(14, 26, 45, 0.06) 1px, transparent 1px);
-        }
+        :root[data-theme="light"] body { background-color: #F4F7FB; }
         ::selection { background: rgba(34, 211, 238, 0.30); color: var(--text); }
 
         /* Thin custom scrollbars */
@@ -122,34 +118,93 @@
         ::-webkit-scrollbar-thumb:hover { background: rgba(139, 154, 181, 0.5); background-clip: padding-box; }
         * { scrollbar-width: thin; scrollbar-color: rgba(139, 154, 181, 0.35) transparent; }
 
-        /* ---------- Animated background orbs ---------- */
+        /* ---------- Animated background: orbs + drifting grid + particles ---------- */
         body::before, body::after {
             content: '';
             position: fixed;
             border-radius: 50%;
             filter: blur(130px);
-            opacity: 0.15;
+            opacity: 0.2;
             z-index: -2;
             pointer-events: none;
-            animation: orbFloat 26s var(--ease) infinite alternate;
+            animation: orbFloat 14s ease-in-out infinite alternate;
         }
         body::before { width: 620px; height: 620px; background: #22D3EE; top: -220px; left: -160px; }
-        body::after  { width: 560px; height: 560px; background: #818CF8; bottom: -240px; right: -160px; animation-delay: -13s; }
+        body::after  { width: 560px; height: 560px; background: #818CF8; bottom: -240px; right: -160px; animation-delay: -7s; }
         .bg-orb {
             position: fixed;
             width: 480px; height: 480px;
             border-radius: 50%;
             background: #34D399;
             filter: blur(140px);
-            opacity: 0.13;
+            opacity: 0.18;
             top: 38%; left: 55%;
             z-index: -2;
             pointer-events: none;
-            animation: orbFloat 32s var(--ease) infinite alternate-reverse;
+            animation: orbFloat 14s ease-in-out infinite alternate-reverse;
+            animation-delay: -4s;
         }
         @keyframes orbFloat {
             from { transform: translate3d(0, 0, 0) scale(1); }
             to   { transform: translate3d(60px, 44px, 0) scale(1.12); }
+        }
+        /* faint 48px grid, radially masked, drifting slowly */
+        .bg-grid {
+            position: fixed;
+            inset: -64px;
+            z-index: -3;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 48px 48px;
+            -webkit-mask-image: radial-gradient(ellipse 78% 68% at 50% 26%, #000 32%, transparent 100%);
+            mask-image: radial-gradient(ellipse 78% 68% at 50% 26%, #000 32%, transparent 100%);
+            animation: gridDrift 60s linear infinite;
+        }
+        :root[data-theme="light"] .bg-grid {
+            background-image:
+                linear-gradient(rgba(14, 26, 45, 0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(14, 26, 45, 0.06) 1px, transparent 1px);
+        }
+        @keyframes gridDrift {
+            from { background-position: 0 0, 0 0; }
+            to   { background-position: 48px 48px, 48px 48px; }
+        }
+        /* 6 glowing particles rising bottom → top */
+        .bg-particles {
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .bg-particles i {
+            position: absolute;
+            bottom: -10px;
+            width: 4px; height: 4px;
+            border-radius: 50%;
+            background: #22D3EE;
+            box-shadow: 0 0 10px 2px rgba(34, 211, 238, 0.5);
+            opacity: 0;
+            animation: particleRise 14s linear infinite;
+        }
+        .bg-particles i:nth-child(1) { left: 8%;  animation-delay: -1s; }
+        .bg-particles i:nth-child(2) { left: 24%; animation-delay: -3.5s; background: #34D399; box-shadow: 0 0 10px 2px rgba(52, 211, 153, 0.5); transform: scale(0.8); }
+        .bg-particles i:nth-child(3) { left: 41%; animation-delay: -6s;   transform: scale(1.2); }
+        .bg-particles i:nth-child(4) { left: 58%; animation-delay: -8.5s; background: #818CF8; box-shadow: 0 0 10px 2px rgba(129, 140, 248, 0.5); transform: scale(0.9); }
+        .bg-particles i:nth-child(5) { left: 76%; animation-delay: -11s;  transform: scale(1.1); }
+        .bg-particles i:nth-child(6) { left: 91%; animation-delay: -13s;  background: #34D399; box-shadow: 0 0 10px 2px rgba(52, 211, 153, 0.5); transform: scale(0.75); }
+        @keyframes particleRise {
+            0%   { transform: translate3d(0, 0, 0) scale(0.6); opacity: 0; }
+            10%  { opacity: 0.75; }
+            85%  { opacity: 0.45; }
+            100% { transform: translate3d(20px, -106vh, 0) scale(1); opacity: 0; }
+        }
+        /* pause every decorative loop while the tab is hidden */
+        body.paused::before, body.paused::after, body.paused .bg-orb,
+        body.paused .bg-grid, body.paused .bg-particles i {
+            animation-play-state: paused !important;
         }
 
         .container { max-width: 1280px; margin: 0 auto; padding: 24px 24px 56px; }
@@ -161,17 +216,18 @@
         }
         .topbar, .grid-container .card, .chart-container, .table-container,
         .test-panel, footer {
-            animation: riseIn 0.5s var(--ease) both;
+            animation: riseIn 0.6s var(--ease) backwards;
         }
-        .grid-container .card:nth-child(1) { animation-delay: 0.08s; }
-        .grid-container .card:nth-child(2) { animation-delay: 0.16s; }
-        .grid-container .card:nth-child(3) { animation-delay: 0.24s; }
-        .grid-container .card:nth-child(4) { animation-delay: 0.32s; }
-        .chart-container { animation-delay: 0.40s; }
-        .table-container { animation-delay: 0.48s; }
-        .test-panel:nth-of-type(1) { animation-delay: 0.56s; }
-        .test-panel:nth-of-type(2) { animation-delay: 0.64s; }
-        .test-panel:nth-of-type(3) { animation-delay: 0.72s; }
+        .grid-container .card:nth-child(1) { animation-delay: 0.10s; }
+        .grid-container .card:nth-child(2) { animation-delay: 0.20s; }
+        .grid-container .card:nth-child(3) { animation-delay: 0.30s; }
+        .grid-container .card:nth-child(4) { animation-delay: 0.40s; }
+        .chart-container { animation-delay: 0.50s; }
+        .table-container { animation-delay: 0.60s; }
+        .test-panel:nth-of-type(1) { animation-delay: 0.70s; }
+        .test-panel:nth-of-type(2) { animation-delay: 0.78s; }
+        .test-panel:nth-of-type(3) { animation-delay: 0.86s; }
+        footer { animation-delay: 0.94s; }
 
         /* ============================================================
            Header — sticky glass bar with energy-flow pulse
@@ -194,7 +250,7 @@
             box-shadow: 0 10px 34px rgba(0, 0, 0, 0.32);
             overflow: hidden;
         }
-        /* energy pulse flowing along the header's bottom edge */
+        /* 2px light-streak travelling along the header's bottom border */
         .topbar::after {
             content: '';
             position: absolute;
@@ -202,8 +258,8 @@
             height: 2px;
             background: linear-gradient(90deg, transparent, var(--grad), transparent);
             background-size: 220% 100%;
-            animation: flowLine 5.5s linear infinite;
-            opacity: 0.85;
+            animation: flowLine 3.5s linear infinite;
+            opacity: 0.9;
         }
         @keyframes flowLine {
             0%   { background-position: 160% 0; }
@@ -218,8 +274,13 @@
             background: var(--grad);
             color: #04121b;
             box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(34, 211, 238, 0.35);
+            animation: logoGlow 3.5s ease-in-out infinite;
             transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
             flex-shrink: 0;
+        }
+        @keyframes logoGlow {
+            0%, 100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(34, 211, 238, 0.30); }
+            50% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 10px 30px rgba(52, 211, 153, 0.5), 0 0 18px rgba(34, 211, 238, 0.35); }
         }
         .logo:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 0 0 1px rgba(255,255,255,0.1), 0 12px 30px rgba(52, 211, 153, 0.45); }
         .logo svg { width: 22px; height: 22px; }
@@ -232,11 +293,17 @@
             line-height: 1.1;
         }
         h1 .grad {
-            background: var(--grad);
+            background: linear-gradient(90deg, #22D3EE, #34D399, #818CF8, #22D3EE);
+            background-size: 300% 100%;
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
             color: transparent;
+            animation: gradFlow 7s linear infinite;
+        }
+        @keyframes gradFlow {
+            from { background-position: 0% 50%; }
+            to   { background-position: 300% 50%; }
         }
         .subtitle { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.01em; }
 
@@ -324,7 +391,7 @@
             overflow: hidden;
         }
         .btn svg { width: 15px; height: 15px; flex-shrink: 0; }
-        .btn:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.2); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3); }
+        .btn:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.22); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32); }
         :root[data-theme="light"] .btn:hover { box-shadow: 0 8px 22px rgba(14, 26, 45, 0.14); border-color: rgba(14, 26, 45, 0.2); }
         .btn:active { transform: scale(0.97); }
         .btn:focus-visible, .chip:focus-visible, .ftab:focus-visible, .nova-chip:focus-visible,
@@ -339,18 +406,22 @@
             border-color: transparent;
             box-shadow: 0 6px 20px rgba(34, 211, 238, 0.28);
         }
-        .btn-primary:hover { box-shadow: 0 12px 30px rgba(52, 211, 153, 0.4); filter: brightness(1.06); }
-        /* shine sweep */
+        .btn-primary:hover { box-shadow: 0 14px 34px rgba(52, 211, 153, 0.45), 0 0 20px rgba(34, 211, 238, 0.4); filter: brightness(1.08); }
+        /* diagonal shine sweep every ~3.6s */
         .btn-primary::before {
             content: '';
             position: absolute;
             top: 0; bottom: 0; width: 45%;
             left: -60%;
-            background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+            background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.5), transparent);
             transform: skewX(-18deg);
-            transition: left 0.55s var(--ease);
+            animation: shineSweep 3.6s var(--ease) infinite;
         }
-        .btn-primary:hover::before { left: 120%; }
+        @keyframes shineSweep {
+            0%   { left: -60%; }
+            30%  { left: 135%; }
+            100% { left: 135%; }
+        }
         .btn-primary:disabled, .btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
         .btn-amber { background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.45); color: var(--solar); }
         .btn-amber:hover { background: rgba(251, 191, 36, 0.2); box-shadow: 0 8px 22px rgba(251, 191, 36, 0.22); }
@@ -393,17 +464,27 @@
             box-shadow: 0 0 0 1px rgba(244, 63, 94, 0.15), 0 14px 40px rgba(244, 63, 94, 0.22);
             overflow: hidden;
         }
-        .alert-banner.show { display: flex; animation: slideDown 0.5s var(--ease) both, shake 0.45s var(--ease) 0.35s 1; }
+        .alert-banner.show {
+            display: flex;
+            animation:
+                slideDown 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+                alertGlow 2.4s ease-in-out 0.55s infinite;
+        }
+        .alert-banner.hiding {
+            display: flex;
+            animation: slideUp 0.38s var(--ease) both;
+        }
         @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-18px) scaleY(0.9); }
+            from { opacity: 0; transform: translateY(-22px) scaleY(0.92); }
             to   { opacity: 1; transform: translateY(0) scaleY(1); }
         }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            20% { transform: translateX(-6px); }
-            40% { transform: translateX(6px); }
-            60% { transform: translateX(-4px); }
-            80% { transform: translateX(4px); }
+        @keyframes slideUp {
+            from { opacity: 1; transform: translateY(0) scaleY(1); }
+            to   { opacity: 0; transform: translateY(-18px) scaleY(0.94); }
+        }
+        @keyframes alertGlow {
+            0%, 100% { box-shadow: 0 0 0 1px rgba(244, 63, 94, 0.15), 0 14px 40px rgba(244, 63, 94, 0.18); }
+            50% { box-shadow: 0 0 0 1px rgba(244, 63, 94, 0.35), 0 14px 54px rgba(244, 63, 94, 0.34), 0 0 26px rgba(244, 63, 94, 0.25); }
         }
         .alert-icon {
             display: flex; align-items: center; justify-content: center;
@@ -411,12 +492,16 @@
             border-radius: 12px;
             background: var(--grad-danger);
             color: #fff;
-            animation: alertPulse 1.6s ease-in-out infinite;
+            animation: iconShake 4s ease-in-out 1.6s infinite;
         }
         .alert-icon svg { width: 22px; height: 22px; }
-        @keyframes alertPulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.5); }
-            50% { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); }
+        @keyframes iconShake {
+            0%, 84%, 100% { transform: rotate(0deg) scale(1); }
+            86% { transform: rotate(-11deg) scale(1.08); }
+            89% { transform: rotate(10deg) scale(1.08); }
+            92% { transform: rotate(-8deg) scale(1.06); }
+            95% { transform: rotate(6deg) scale(1.04); }
+            98% { transform: rotate(0deg) scale(1); }
         }
         .alert-banner strong {
             display: block;
@@ -492,9 +577,9 @@
         .card:nth-child(3)::before { background: linear-gradient(90deg, #34D399, #FBBF24); }
         .card:nth-child(4)::before { background: linear-gradient(90deg, #818CF8, #22D3EE); }
         .card:hover {
-            transform: translateY(-4px);
-            border-color: rgba(34, 211, 238, 0.35);
-            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35), 0 0 24px rgba(34, 211, 238, 0.12);
+            transform: translateY(-3px);
+            border-color: rgba(34, 211, 238, 0.4);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35), 0 0 26px rgba(34, 211, 238, 0.14);
         }
         .card:hover::before { opacity: 1; box-shadow: 0 2px 18px rgba(34, 211, 238, 0.6); }
 
@@ -682,6 +767,31 @@
             border-radius: var(--radius-sm);
             padding: 6px;
         }
+        /* custom glass tooltip (fades + scales in) */
+        .chart-tooltip {
+            position: absolute;
+            transform: translate(-50%, -100%) scale(0.94);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 6;
+            padding: 10px 13px;
+            border-radius: 12px;
+            background: var(--tooltip-bg);
+            border: 1px solid var(--tooltip-border);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            white-space: nowrap;
+            transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
+        }
+        .chart-tooltip.show { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+        .chart-tooltip .tt-time { font: 600 10px 'JetBrains Mono', monospace; color: var(--muted); letter-spacing: 0.04em; }
+        .chart-tooltip .tt-val { font: 700 15px 'JetBrains Mono', monospace; color: var(--text); font-variant-numeric: tabular-nums; }
+        .chart-tooltip .tt-mode { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+        .chart-tooltip .tt-mode i { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .chart-tooltip .tt-over { font: 700 10px 'JetBrains Mono', monospace; color: #ff8093; letter-spacing: 0.06em; }
+
         /* skeleton shimmer while the forecast loads */
         .chart-loader {
             position: absolute;
@@ -798,6 +908,11 @@
         tbody tr:last-child { border-bottom: none; }
         tbody tr.current-row { background: rgba(52, 211, 153, 0.07); }
         tbody tr.current-row td:first-child::before { opacity: 1; transform: scaleY(1); }
+        /* overload rows carry the pulse inside their inline animation (JS) */
+        @keyframes overloadPulse {
+            0%, 100% { background-color: rgba(244, 63, 94, 0.04); }
+            50% { background-color: rgba(244, 63, 94, 0.14); }
+        }
 
         .hour-idx {
             display: inline-flex;
@@ -1040,12 +1155,12 @@
             gap: 10px;
             align-items: baseline;
             padding: 2px 0;
-            animation: logIn 0.32s var(--ease) both;
+            animation: logIn 0.4s var(--ease) both;
         }
-        .log-line:first-child { animation-duration: 0.4s; }
+        .log-line:first-child { animation-duration: 0.45s; }
         @keyframes logIn {
-            from { opacity: 0; transform: translateY(7px); }
-            to   { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; transform: translateX(-12px); }
+            to   { opacity: 1; transform: translateX(0); }
         }
         .log-time { color: #5D6E8C; flex-shrink: 0; }
         .log-src {
@@ -1159,6 +1274,8 @@
             gap: 10px;
             padding: 12px 15px;
             border-radius: 14px;
+            position: relative;
+            overflow: hidden;
             background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
             -webkit-backdrop-filter: var(--blur);
             backdrop-filter: var(--blur);
@@ -1177,6 +1294,21 @@
             background: var(--storage); margin-top: 6px; flex-shrink: 0;
             box-shadow: 0 0 10px currentColor;
         }
+        /* auto-dismiss progress bar */
+        .toast b {
+            position: absolute;
+            left: 0; bottom: 0;
+            height: 2px; width: 100%;
+            border-radius: 2px;
+            background: var(--grad);
+            transform-origin: left center;
+            animation: toastBar 3.6s linear forwards;
+        }
+        .toast.err b { background: var(--grad-danger); }
+        @keyframes toastBar {
+            from { transform: scaleX(1); }
+            to   { transform: scaleX(0); }
+        }
         .toast.ok i { background: var(--renewable); }
         .toast.err i { background: var(--danger); }
         .toast.warn i { background: var(--solar); }
@@ -1193,7 +1325,11 @@
             border: none;
             box-shadow: 0 10px 30px rgba(34, 211, 238, 0.4);
             transition: transform 0.22s var(--ease), opacity 0.22s var(--ease);
-            animation: novaRing 2.6s var(--ease) infinite;
+            animation: novaFloat 3.5s ease-in-out infinite, novaRing 2.6s var(--ease) infinite;
+        }
+        @keyframes novaFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-9px); }
         }
         .nova-launcher svg { width: 24px; height: 24px; }
         .nova-launcher:hover { transform: scale(1.07); }
@@ -1391,6 +1527,8 @@
 </head>
 <body>
     <div class="bg-orb" aria-hidden="true"></div>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <div class="bg-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
     <div class="container">
         <header class="topbar">
@@ -1467,7 +1605,7 @@
                 </div>
                 <div class="stat-value"><span id="batterySocValue">87</span><span class="unit">%</span></div>
                 <div class="soc-bar">
-                    <div class="soc-fill" id="socFill" style="width: 87%"></div>
+                    <div class="soc-fill" id="socFill"></div>
                 </div>
                 <div class="stat-label" id="socLabel">Estimated remaining: 6.2 hours</div>
             </div>
@@ -1701,6 +1839,9 @@
         function renderLog() {
             const el = document.getElementById('sysLog');
             if (!el) return;
+            // Auto-scroll only when the reader is already near the newest line
+            // (top), so manual scrolling is never fought.
+            const stickToTop = el.scrollTop < 24;
             el.innerHTML = systemLog.map(e =>
                 `<div class="log-line">` +
                 `<span class="log-time">${e.time}</span>` +
@@ -1708,7 +1849,13 @@
                 `<span class="log-msg">${String(e.msg).replace(/</g, '&lt;')}</span>` +
                 `</div>`
             ).join('');
+            if (stickToTop) el.scrollTop = 0;
         }
+
+        // Pause decorative background loops while the tab is hidden.
+        document.addEventListener('visibilitychange', () => {
+            document.body.classList.toggle('paused', document.hidden);
+        });
 
         function clearLog() {
             systemLog = [];
@@ -1724,6 +1871,8 @@
             el.className = 'toast ' + (type || 'info');
             el.innerHTML = '<i></i><span></span>';
             el.querySelector('span').textContent = message;
+            const bar = document.createElement('b');
+            el.appendChild(bar);
             wrap.appendChild(el);
             setTimeout(() => {
                 el.classList.add('out');
@@ -1766,15 +1915,21 @@
             (document.documentElement.getAttribute('data-theme') === 'light') ? THEME_MOON : THEME_SUN;
 
         // ---------- Number count-up animation ----------
-        function animateNumber(el, target, decimals) {
+        function animateNumber(el, target, decimals, duration) {
             if (!el) return;
             const from = parseFloat(el.textContent);
             const start = isFinite(from) ? from : 0;
-            const duration = 850;
+            const dur = duration || 1800;
+            const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reduced || start === target) {
+                el.textContent = target.toFixed(decimals);
+                return;
+            }
             const t0 = performance.now();
             function frame(now) {
-                const p = Math.min(1, (now - t0) / duration);
-                const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+                const p = Math.min(1, (now - t0) / dur);
+                // easeOutExpo — long, luxurious settle
+                const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
                 el.textContent = (start + (target - start) * eased).toFixed(decimals);
                 if (p < 1) requestAnimationFrame(frame);
                 else el.textContent = target.toFixed(decimals);
@@ -2049,7 +2204,7 @@
                 const overload = sig ? sig.alert === 'critical_overload' : isOverload(pred);
                 box.innerHTML = `
                     <span class="mr-label">Predicted demand</span>
-                    <span class="mr-value">${pred.toFixed(2)}<span class="unit">kW</span></span>
+                    <span class="mr-value"><span class="mr-num">0.00</span><span class="unit">kW</span></span>
                     <span class="pill ${mode === 'renewable' ? 'pill-emerald' : 'pill-sky'}">
                         <span class="status-dot ${mode === 'renewable' ? 'green' : 'blue'}"></span>
                         ${mode === 'renewable' ? 'Renewable Storage' : 'Main Grid'}
@@ -2058,6 +2213,8 @@
                         ? '<span class="pill pill-rose">' + ICON_WARN + ' Critical Overload</span>'
                         : '<span class="pill-ok">' + ICON_CHECK + ' Normal</span>'}
                     <span class="mr-note">${data.note || ''}</span>`;
+                // kW value counts up in the result card
+                animateNumber(box.querySelector('.mr-num'), pred, 2, 1000);
                 logEvent('manual', `${ts} → ${pred.toFixed(2)} kW · ${mode === 'renewable' ? 'Renewable Storage' : 'Main Grid'}${overload ? ' · OVERLOAD' : ''} (${data.note || 'API'})`);
                 showToast(`${pred.toFixed(2)} kW · ${mode === 'renewable' ? 'Renewable Storage' : 'Main Grid'}`, overload ? 'warn' : 'ok');
             } catch (err) {
@@ -2103,7 +2260,17 @@
         }
 
         function clearAlert() {
-            document.getElementById('alertBanner').classList.remove('show');
+            const banner = document.getElementById('alertBanner');
+            if (!banner.classList.contains('show')) return;
+            // Slide up first, then remove — dismiss feels deliberate, not instant.
+            banner.classList.add('hiding');
+            const done = () => {
+                banner.classList.remove('show', 'hiding');
+                banner.removeEventListener('animationend', done);
+            };
+            banner.addEventListener('animationend', done);
+            // Safety net if animationend never fires (reduced motion).
+            setTimeout(done, 700);
         }
 
         function updateDashboard() {
@@ -2195,11 +2362,89 @@
         }
 
         // ============================================================
-        // Forecast chart — control-room styling
+        // Forecast chart — control-room styling + motion
         // ============================================================
         const chartToggles = { demand: true, peak: true, t160: true, t200: true };
+        const chartFade = { peak: 1, t160: 1, t200: 1 }; // animated 0..1 per series
         let chartHoverIndex = -1;
-        let nowPulseTimer = null;
+        let motionRaf = null;
+        let areaFadeTimer = null;
+
+        function motionReduced() {
+            return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        }
+
+        // Area gradient at a given alpha — rebuilt during the fade-in so the
+        // fill appears only after the line has finished drawing.
+        function makeAreaGradient(alpha) {
+            const ctx = document.getElementById('demandChart').getContext('2d');
+            const rgb = cssVar('--emerald-a') || '52, 211, 153';
+            const g = ctx.createLinearGradient(0, 0, 0, 380);
+            g.addColorStop(0, 'rgba(' + rgb + ', ' + (0.38 * alpha).toFixed(3) + ')');
+            g.addColorStop(1, 'rgba(' + rgb + ', ' + (0.015 * alpha).toFixed(3) + ')');
+            return g;
+        }
+
+        // Custom tooltip: glass card that fades + scales in.
+        function externalChartTooltip(context) {
+            const chart = context.chart;
+            const tooltip = context.tooltip;
+            let el = document.getElementById('chartTooltip');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'chartTooltip';
+                el.className = 'chart-tooltip';
+                (chart.canvas.parentNode || document.body).appendChild(el);
+            }
+            if (!tooltip || tooltip.opacity === 0 || !tooltip.dataPoints || !tooltip.dataPoints.length) {
+                el.classList.remove('show');
+                return;
+            }
+            const idx = tooltip.dataPoints[0].dataIndex;
+            const p = predictionsData[idx];
+            if (!p) { el.classList.remove('show'); return; }
+            const hour = new Date(p.timestamp).getHours();
+            const mode = getGridMode(p.demand, hour);
+            const over = isOverload(p.demand);
+            const modeColor = mode === 'renewable' ? '#34D399' : '#818CF8';
+            el.innerHTML =
+                '<span class="tt-time">' + formatDate(p.timestamp) + ' · ' + formatHour(p.timestamp) + '</span>' +
+                '<span class="tt-val">' + p.demand.toFixed(2) + ' kW</span>' +
+                '<span class="tt-mode"><i style="background:' + modeColor + '"></i>' +
+                (mode === 'renewable' ? 'Renewable Storage' : 'Main Grid') + '</span>' +
+                (over ? '<span class="tt-over">CRITICAL OVERLOAD</span>' : '');
+            const box = chart.canvas.parentNode;
+            const x = tooltip.caretX + (chart.canvas.offsetLeft || 0);
+            const y = tooltip.caretY + (chart.canvas.offsetTop || 0);
+            el.style.left = Math.max(90, Math.min(x, box.clientWidth - 90)) + 'px';
+            el.style.top = Math.max(44, y - 14) + 'px';
+            el.classList.add('show');
+        }
+
+        // Continuous 30fps decoration loop: energy pulses along the line,
+        // scan beam, NOW breathing, threshold fade transitions. Skips work
+        // while the tab is hidden or motion is reduced.
+        function startMotionLoop() {
+            if (motionRaf || motionReduced()) return;
+            let last = 0;
+            const tick = (now) => {
+                motionRaf = requestAnimationFrame(tick);
+                if (document.hidden || !demandChart || demandChart.destroyed) return;
+                if (now - last < 33) return; // ~30fps keeps it cheap
+                last = now;
+                // ease threshold/peak visibility toward its target
+                let moving = false;
+                for (const k of Object.keys(chartFade)) {
+                    const target = chartToggles[k] ? 1 : 0;
+                    const d = target - chartFade[k];
+                    if (Math.abs(d) > 0.01) { chartFade[k] += d * 0.18; moving = true; }
+                    else chartFade[k] = target;
+                }
+                if (!moving && document.hidden) return;
+                try { demandChart.draw(); } catch (e) { /* chart replaced mid-frame */ }
+            };
+            motionRaf = requestAnimationFrame(tick);
+        }
 
         function updateChart() {
             const ctx = document.getElementById('demandChart').getContext('2d');
@@ -2217,21 +2462,21 @@
             const gridColor = cssVar('--grid') || 'rgba(255,255,255,0.05)';
             const borderToken = cssVar('--border') || 'rgba(255,255,255,0.08)';
             const bgToken = cssVar('--bg') || '#070B14';
-            const emeraldRgb = cssVar('--emerald-a') || '52, 211, 153';
+            const reduced = motionReduced();
 
             const pointColors = predictionsData.map(p => {
                 const hour = new Date(p.timestamp).getHours();
                 return getGridMode(p.demand, hour) === 'renewable' ? emerald : sky;
             });
 
-            // Emerald gradient fill under the line.
-            const gradient = ctx.createLinearGradient(0, 0, 0, 380);
-            gradient.addColorStop(0, 'rgba(' + emeraldRgb + ', 0.38)');
-            gradient.addColorStop(1, 'rgba(' + emeraldRgb + ', 0.015)');
-
             if (demandChart) {
                 demandChart.destroy();
             }
+            if (areaFadeTimer) { clearTimeout(areaFadeTimer); areaFadeTimer = null; }
+
+            // Area starts invisible when motion is allowed, then fades in
+            // once the line has finished its left-to-right draw.
+            const gradient = makeAreaGradient(reduced ? 1 : 0);
 
             demandChart = new Chart(ctx, {
                 type: 'line',
@@ -2255,10 +2500,10 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    animation: {
-                        duration: 1200,
+                    animation: reduced ? false : {
+                        duration: 2000,
                         easing: 'easeOutQuart',
-                        delay: (context) => context.dataIndex * 26
+                        delay: (context) => context.type === 'default' ? context.dataIndex * 40 : 0
                     },
                     interaction: { intersect: false, mode: 'index' },
                     onHover: function (evt, active) {
@@ -2268,34 +2513,8 @@
                     plugins: {
                         legend: { display: false },
                         tooltip: {
-                            backgroundColor: cssVar('--tooltip-bg') || 'rgba(7, 11, 20, 0.96)',
-                            borderColor: cssVar('--tooltip-border') || 'rgba(255,255,255,0.12)',
-                            borderWidth: 1,
-                            titleColor: cssVar('--text') || '#E6EDF7',
-                            bodyColor: muted,
-                            padding: 12,
-                            cornerRadius: 10,
-                            caretSize: 6,
-                            displayColors: true,
-                            usePointStyle: true,
-                            titleFont: { family: 'JetBrains Mono', size: 11, weight: '600' },
-                            bodyFont: { family: 'JetBrains Mono', size: 12 },
-                            callbacks: {
-                                label: function (context) {
-                                    return '  ' + context.parsed.y.toFixed(2) + ' kW';
-                                },
-                                afterBody: function (context) {
-                                    const idx = context[0].dataIndex;
-                                    const p = predictionsData[idx];
-                                    const hour = new Date(p.timestamp).getHours();
-                                    const mode = getGridMode(p.demand, hour);
-                                    const overload = isOverload(p.demand);
-                                    return [
-                                        'Grid mode: ' + (mode === 'renewable' ? 'Renewable' : 'Main Grid'),
-                                        overload ? 'CRITICAL OVERLOAD' : ''
-                                    ].filter(Boolean);
-                                }
-                            }
+                            enabled: false,
+                            external: externalChartTooltip
                         }
                     },
                     scales: {
@@ -2333,8 +2552,21 @@
                         if (!area || !yScale || !xScale) return;
                         const now = performance.now();
 
+                        // --- cyan scan beam sweeping every 5s ---
+                        if (!reduced) {
+                            const beat = (now % 5000) / 5000;
+                            const bx = area.left + beat * (area.right - area.left);
+                            c.save();
+                            const beam = c.createLinearGradient(bx - 70, 0, bx, 0);
+                            beam.addColorStop(0, 'rgba(34, 211, 238, 0)');
+                            beam.addColorStop(1, 'rgba(34, 211, 238, 0.11)');
+                            c.fillStyle = beam;
+                            c.fillRect(bx - 70, area.top, 70, area.bottom - area.top);
+                            c.restore();
+                        }
+
                         // --- Peak-hours band (18:00-22:00) ---
-                        if (chartToggles.peak) {
+                        if (chartFade.peak > 0.02) {
                             const idxs = [];
                             predictionsData.forEach((p, i) => {
                                 const h = new Date(p.timestamp).getHours();
@@ -2345,9 +2577,10 @@
                                 const last = xScale.getPixelForValue(idxs[idxs.length - 1]);
                                 const step = idxs.length > 1 ? (last - first) / (idxs[idxs.length - 1] - idxs[0]) : 24;
                                 c.save();
-                                c.fillStyle = 'rgba(129, 140, 248, 0.08)';
+                                c.globalAlpha = chartFade.peak;
+                                c.fillStyle = 'rgba(129, 140, 248, 0.09)';
                                 c.fillRect(first - step / 2, area.top, (last - first) + step, area.bottom - area.top);
-                                c.fillStyle = 'rgba(165, 180, 252, 0.9)';
+                                c.fillStyle = 'rgba(165, 180, 252, 0.95)';
                                 c.font = '700 9px JetBrains Mono, monospace';
                                 // label at the band's centre so it never collides with the NOW chip
                                 const bandMid = (first + last) / 2;
@@ -2361,16 +2594,18 @@
                         // --- Red tint above the 200 kW overload line ---
                         const y200 = yScale.getPixelForValue(DEMAND_OVERLOAD_THRESHOLD);
                         const y160 = yScale.getPixelForValue(DEMAND_RENEWABLE_THRESHOLD);
-                        if (chartToggles.t200) {
+                        if (chartFade.t200 > 0.02) {
                             c.save();
+                            c.globalAlpha = chartFade.t200;
                             c.fillStyle = 'rgba(244, 63, 94, 0.07)';
                             c.fillRect(area.left, area.top, area.right - area.left, Math.max(0, y200 - area.top));
                             c.restore();
                         }
 
                         // --- Dashed threshold lines + right-edge label chips ---
-                        function thresholdChip(y, text, color) {
+                        function thresholdChip(y, text, color, alpha) {
                             c.save();
+                            c.globalAlpha = alpha;
                             c.font = '600 10px JetBrains Mono, monospace';
                             const w = c.measureText(text).width + 14;
                             const x = area.right - w - 4;
@@ -2385,8 +2620,9 @@
                             c.fillText(text, x + 7, y + 3.5);
                             c.restore();
                         }
-                        if (chartToggles.t160) {
+                        if (chartFade.t160 > 0.02) {
                             c.save();
+                            c.globalAlpha = chartFade.t160;
                             c.beginPath();
                             c.setLineDash([6, 6]);
                             c.strokeStyle = amberLabel;
@@ -2394,12 +2630,12 @@
                             c.moveTo(area.left, y160);
                             c.lineTo(area.right, y160);
                             c.stroke();
-                            c.setLineDash([]);
                             c.restore();
-                            thresholdChip(y160, '160 kW · RENEWABLE', amberLabel);
+                            thresholdChip(y160, '160 kW · RENEWABLE', amberLabel, chartFade.t160);
                         }
-                        if (chartToggles.t200) {
+                        if (chartFade.t200 > 0.02) {
                             c.save();
+                            c.globalAlpha = chartFade.t200;
                             c.beginPath();
                             c.setLineDash([6, 6]);
                             c.strokeStyle = roseLabel;
@@ -2407,9 +2643,33 @@
                             c.moveTo(area.left, y200);
                             c.lineTo(area.right, y200);
                             c.stroke();
-                            c.setLineDash([]);
                             c.restore();
-                            thresholdChip(y200, '200 kW · OVERLOAD', roseLabel);
+                            thresholdChip(y200, '200 kW · OVERLOAD', roseLabel, chartFade.t200);
+                        }
+
+                        // --- energy pulses travelling along the line ---
+                        if (!reduced && chartToggles.demand) {
+                            const meta = chart.getDatasetMeta(0);
+                            if (meta && meta.data && meta.data.length > 1) {
+                                const pts = meta.data.filter(el => el.x != null).map(el => ({ x: el.x, y: el.y }));
+                                if (pts.length > 1) {
+                                    c.save();
+                                    c.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                                    c.lineWidth = 2.2;
+                                    c.lineCap = 'round';
+                                    c.setLineDash([2, 34]);
+                                    c.lineDashOffset = -((now / 20) % 100000);
+                                    c.beginPath();
+                                    c.moveTo(pts[0].x, pts[0].y);
+                                    for (let i = 1; i < pts.length; i++) {
+                                        const prev = pts[i - 1], cur = pts[i];
+                                        c.quadraticCurveTo(prev.x, prev.y, (prev.x + cur.x) / 2, (prev.y + cur.y) / 2);
+                                    }
+                                    c.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+                                    c.stroke();
+                                    c.restore();
+                                }
+                            }
                         }
 
                         // --- Crosshair on hover ---
@@ -2439,7 +2699,7 @@
                         c.stroke();
                         c.setLineDash([]);
                         // pulsing ring around the current point
-                        const pulse = (Math.sin(now / 620) + 1) / 2;
+                        const pulse = reduced ? 0 : (Math.sin(now / 620) + 1) / 2;
                         c.beginPath();
                         c.arc(nowX, nowY, 7 + pulse * 6, 0, Math.PI * 2);
                         c.fillStyle = 'rgba(34, 211, 238, ' + (0.28 * (1 - pulse)) + ')';
@@ -2470,17 +2730,22 @@
             const loader = document.getElementById('chartLoader');
             if (loader) loader.classList.remove('show');
 
-            // Gentle redraw so the NOW pulse keeps breathing.
-            if (nowPulseTimer) clearInterval(nowPulseTimer);
-            nowPulseTimer = setInterval(() => {
-                if (!demandChart || demandChart.destroyed || !document.body.contains(demandChart.canvas)) {
-                    clearInterval(nowPulseTimer);
-                    nowPulseTimer = null;
-                    return;
-                }
-                if (document.hidden) return;
-                demandChart.draw();
-            }, 700);
+            if (!reduced) {
+                // Fade the gradient area in just after the line finishes drawing.
+                areaFadeTimer = setTimeout(() => {
+                    const t0 = performance.now();
+                    const step = (t) => {
+                        if (!demandChart || demandChart.destroyed) return;
+                        const p = Math.min(1, (t - t0) / 700);
+                        const eased = 1 - Math.pow(1 - p, 3);
+                        demandChart.data.datasets[0].backgroundColor = makeAreaGradient(eased);
+                        demandChart.update('none');
+                        if (p < 1) requestAnimationFrame(step);
+                    };
+                    requestAnimationFrame(step);
+                }, 2100);
+                startMotionLoop();
+            }
         }
 
         // ============================================================
@@ -2531,8 +2796,12 @@
                     row.classList.add('current-row');
                 }
 
-                // Stagger rows in for a subtle refresh animation.
-                row.style.animation = 'riseIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) ' + Math.min(idx * 0.03, 0.5) + 's both';
+                // Stagger rows in (80ms apart); overload rows keep a soft red
+                // pulse running underneath the entrance.
+                row.style.animation =
+                    'riseIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) ' + Math.min(idx * 0.08, 1.2) + 's backwards' +
+                    (overload ? ', overloadPulse 2s ease-in-out infinite' : '');
+                if (overload) row.classList.add('overload-row');
 
                 const pct = Math.max(6, Math.min(100, Math.round((p.demand / maxDemand) * 100)));
 
@@ -2630,11 +2899,13 @@
                     btn.classList.toggle('off', !on);
                     btn.setAttribute('aria-pressed', String(on));
                     if (key === 'demand' && demandChart) {
+                        // dataset toggle rides the built-in transition; the
+                        // motion loop keeps everything else fading smoothly.
                         demandChart.setDatasetVisibility(0, on);
                         demandChart.update();
-                    } else if (demandChart) {
-                        demandChart.update();
                     }
+                    // peak/t160/t200 fade out via chartFade in the motion loop
+                    startMotionLoop();
                 });
             });
 

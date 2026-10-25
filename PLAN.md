@@ -472,6 +472,36 @@ feature preserved and re-tested).
   (auto-open + greeting + chips) — all pass
 - [x] Zero console errors on both local and live site
 
+### 13e. Premium motion pass (GPU-friendly: transform/opacity only)
+- [x] Background: 3 orbs re-timed to 14s ease-in-out alternate at ~20%,
+  48px grid overlay with radial mask drifting slowly, 6 glowing particles
+  rising bottom→top (14s, staggered)
+- [x] Header: "ISR 3.0" flowing gradient text (cyan→green→indigo, 7s),
+  2px light-streak loop (3.5s) on the bottom edge, breathing logo glow
+- [x] Entrance: 100ms stagger with `animation-fill-mode: backwards` so
+  hover transforms still apply
+- [x] Hover: cards lift 3px with cyan border/shadow, buttons lift 2px,
+  primary buttons sweep a diagonal shine every 3.6s
+- [x] KPI numbers count up over 1.8s (easeOutExpo), on load and on every
+  refresh; SOC bar grows from 0 with shimmer; mode badge breathes
+- [x] Chart: 2s left-to-right draw, gradient area fades in after it
+  (2.1s + 700ms), white energy pulses travel the line (dashed offset),
+  cyan scan beam every 5s, NOW pulsing ring, custom glass tooltip that
+  fades/scales in, legend toggles fade smoothly (animated alphas)
+- [x] Table: 80ms row stagger, overload rows pulse red (2s loop)
+- [x] Alert: overshoot spring-in, 2.4s red glow pulse, icon shakes every
+  4s, and a real slide-up exit on dismiss (`hiding` class + animationend)
+- [x] Log: lines slide in from the left, auto-scroll keeps newest visible
+  without fighting manual scrolling, blinking cursor
+- [x] Nova FAB floats 9px (3.5s) with ripple ring; toasts carry an
+  auto-dismiss progress bar; manual-result kW counts up
+- [x] Motion loop pauses when `document.hidden` (visibilitychange →
+  `body.paused` freezes all decorative CSS loops); everything wrapped in
+  `prefers-reduced-motion: reduce` — chart renders without animation and
+  count-ups snap to final values
+- [x] Re-verified after the pass: 28 element IDs and 17 JS hooks all
+  intact (scripted audit), zero console errors, live site green
+
 ---
 
 ## Dependencies
