@@ -529,6 +529,115 @@
         .log-src.system { color: var(--muted); }
         .log-msg { color: var(--text); word-break: break-word; }
 
+        /* ---------- Virtual assistant (Nova) ---------- */
+        .nova-launcher {
+            position: fixed; right: 22px; bottom: 22px; z-index: 90;
+            width: 56px; height: 56px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; cursor: pointer; color: #06251a;
+            background: linear-gradient(135deg, var(--emerald), var(--amber));
+            box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45);
+            transition: transform 0.2s ease;
+            border: none;
+        }
+        .nova-launcher:hover { transform: scale(1.08); }
+        .nova-panel {
+            position: fixed; right: 22px; bottom: 90px; z-index: 91;
+            width: 376px; max-width: calc(100vw - 32px);
+            height: min(560px, calc(100vh - 130px));
+            display: flex; flex-direction: column;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+            opacity: 0; transform: translateY(16px) scale(0.97);
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            overflow: hidden;
+        }
+        .nova-panel.open { opacity: 1; transform: none; pointer-events: auto; }
+        .nova-head {
+            display: flex; gap: 10px; align-items: center;
+            padding: 14px 16px; border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(var(--emerald-a, 52, 211, 153), 0.14), transparent);
+        }
+        .nova-avatar {
+            width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+            background: linear-gradient(135deg, var(--emerald), var(--amber));
+            display: flex; align-items: center; justify-content: center;
+            color: #06251a; font-weight: 800; font-size: 1rem;
+        }
+        .nova-title strong {
+            display: block; font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.95rem; color: var(--text);
+        }
+        .nova-title span { font-size: 0.7rem; color: var(--muted); }
+        .nova-close {
+            margin-left: auto; width: 28px; height: 28px; border-radius: 8px;
+            background: none; border: 1px solid var(--border);
+            color: var(--muted); cursor: pointer; font-size: 0.85rem;
+        }
+        .nova-close:hover { color: var(--text); border-color: var(--emerald); }
+        .nova-messages {
+            flex: 1; overflow-y: auto; padding: 14px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .nova-msg {
+            max-width: 88%; padding: 9px 12px; border-radius: 14px;
+            font-size: 0.85rem; line-height: 1.55;
+            white-space: pre-wrap; word-break: break-word;
+            animation: riseIn 0.3s ease both;
+        }
+        .nova-me {
+            align-self: flex-end; background: var(--emerald);
+            color: #06251a; font-weight: 500; border-bottom-right-radius: 4px;
+        }
+        .nova-ai {
+            align-self: flex-start; background: var(--bg);
+            border: 1px solid var(--border); border-bottom-left-radius: 4px;
+            color: var(--text);
+        }
+        .nova-typing { display: flex; gap: 5px; align-items: center; padding: 12px 14px; }
+        .nova-typing span {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--emerald); opacity: 0.4;
+            animation: novaDot 1.1s infinite ease-in-out;
+        }
+        .nova-typing span:nth-child(2) { animation-delay: 0.15s; }
+        .nova-typing span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes novaDot { 0%, 80%, 100% { opacity: 0.3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-4px); } }
+        .nova-chips { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 14px 10px; }
+        .nova-chip {
+            font-size: 0.72rem; padding: 5px 10px; border-radius: 999px;
+            border: 1px solid var(--border); background: transparent;
+            color: var(--muted); cursor: pointer; transition: all 0.2s ease;
+        }
+        .nova-chip:hover { border-color: var(--emerald); color: var(--emerald); }
+        .nova-chip:disabled { opacity: 0.5; cursor: wait; }
+        .nova-input {
+            display: flex; gap: 8px; padding: 12px 14px;
+            border-top: 1px solid var(--border); background: var(--surface);
+        }
+        .nova-input input {
+            flex: 1; min-width: 0; background: var(--bg);
+            border: 1px solid var(--border); border-radius: 10px;
+            padding: 10px 12px; color: var(--text);
+            font-family: 'Inter', sans-serif; font-size: 0.88rem;
+        }
+        .nova-input input:focus { outline: none; border-color: var(--emerald); }
+        .nova-send {
+            width: 42px; height: 42px; border-radius: 10px; border: none;
+            cursor: pointer; font-size: 1rem; color: #06251a;
+            background: linear-gradient(135deg, var(--emerald), var(--amber));
+            transition: transform 0.15s ease;
+        }
+        .nova-send:disabled { opacity: 0.5; cursor: wait; }
+        .nova-send:not(:disabled):hover { transform: scale(1.05); }
+        @media (max-width: 720px) {
+            .nova-panel { right: 12px; bottom: 84px; width: calc(100vw - 24px); }
+            .nova-launcher { right: 14px; bottom: 14px; }
+        }
+
         .loading { text-align: center; padding: 30px; color: var(--muted); font-size: 0.9rem; }
 
         footer {
@@ -709,6 +818,30 @@
             <span>HackSphere 3.0 · Smart Energy Microgrid Engine</span>
             <span>Predictions by <span class="tag">Zoho Catalyst QuickML</span> · ISR regression model</span>
         </footer>
+    </div>
+
+    <!-- Virtual assistant: Nova -->
+    <button class="nova-launcher" id="novaLauncher" onclick="toggleNova()" title="Ask Nova — your site guide" aria-label="Open assistant">✦</button>
+    <div class="nova-panel" id="novaPanel" role="dialog" aria-label="Nova site assistant">
+        <div class="nova-head">
+            <div class="nova-avatar">✦</div>
+            <div class="nova-title">
+                <strong>Nova</strong>
+                <span>Your HackSphere 3.0 guide · answers instantly</span>
+            </div>
+            <button class="nova-close" onclick="toggleNova(false)" aria-label="Close assistant">✕</button>
+        </div>
+        <div class="nova-messages" id="novaMessages" aria-live="polite"></div>
+        <div class="nova-chips" id="novaChips">
+            <button class="nova-chip" onclick="askNova('What is this site?')">What is this site?</button>
+            <button class="nova-chip" onclick="askNova('How does the forecast work?')">How does the forecast work?</button>
+            <button class="nova-chip" onclick="askNova('What are the grid switch rules?')">Grid switch rules?</button>
+            <button class="nova-chip" onclick="askNova('How do I import my own CSV?')">Import CSV?</button>
+        </div>
+        <form class="nova-input" onsubmit="return sendNova(event)">
+            <input type="text" id="novaText" placeholder="Ask about the dashboard…" autocomplete="off" maxlength="500">
+            <button type="submit" class="nova-send" id="novaSend" aria-label="Send">➤</button>
+        </form>
     </div>
 
     <script>
@@ -1369,6 +1502,96 @@
             });
         }
 
+        // ---------- Virtual assistant (Nova) ----------
+        // Groq-backed chat via the predict function's /assistant route; the
+        // API key lives only on the server, never in this page.
+        const ASSISTANT_URL = 'https://project-rainfall-60093145112.development.catalystserverless.in/server/predict/assistant';
+        const novaHistory = [];
+        let novaBusy = false;
+        let novaGreeted = false;
+        const novaMessages = document.getElementById('novaMessages');
+        const novaPanel = document.getElementById('novaPanel');
+
+        function addNovaMsg(role, text) {
+            const el = document.createElement('div');
+            el.className = 'nova-msg ' + (role === 'user' ? 'nova-me' : 'nova-ai');
+            el.textContent = text;
+            novaMessages.appendChild(el);
+            novaMessages.scrollTop = novaMessages.scrollHeight;
+            return el;
+        }
+
+        function toggleNova(force) {
+            const open = typeof force === 'boolean' ? force : !novaPanel.classList.contains('open');
+            novaPanel.classList.toggle('open', open);
+            if (open) {
+                document.getElementById('novaLauncher').style.transform = 'scale(0)';
+                if (!novaGreeted) {
+                    novaGreeted = true;
+                    askNova('Introduce yourself and give a short overview of what this site does.');
+                } else {
+                    document.getElementById('novaText').focus();
+                }
+            } else {
+                document.getElementById('novaLauncher').style.transform = '';
+            }
+        }
+
+        async function askNova(question) {
+            if (novaBusy || !question) return;
+            novaBusy = true;
+            document.getElementById('novaSend').disabled = true;
+            document.querySelectorAll('.nova-chip').forEach(c => c.disabled = true);
+            addNovaMsg('user', question);
+            novaHistory.push({ role: 'user', content: question });
+            const typing = document.createElement('div');
+            typing.className = 'nova-msg nova-ai nova-typing';
+            typing.innerHTML = '<span></span><span></span><span></span>';
+            novaMessages.appendChild(typing);
+            novaMessages.scrollTop = novaMessages.scrollHeight;
+            try {
+                const res = await fetch(ASSISTANT_URL, {
+                    method: 'POST',
+                    // text/plain avoids the OPTIONS preflight: the Catalyst
+                    // gateway answers OPTIONS without CORS headers (it never
+                    // reaches the function). The function parses raw JSON
+                    // regardless of content type, and the actual POST response
+                    // carries Access-Control-Allow-Origin: *.
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify({ messages: novaHistory.slice(-12) })
+                });
+                const data = await res.json().catch(() => ({}));
+                typing.remove();
+                if (!res.ok || !data.reply) {
+                    const err = data.error || `error ${res.status}`;
+                    addNovaMsg('ai', 'Sorry — the assistant is unavailable right now (' + err + '). The dashboard itself is fully functional.');
+                    novaHistory.pop();
+                } else {
+                    novaHistory.push({ role: 'assistant', content: data.reply });
+                    addNovaMsg('ai', data.reply);
+                    logEvent('system', `Nova answered a visitor question (${data.model || 'assistant'})`);
+                }
+            } catch (e) {
+                typing.remove();
+                addNovaMsg('ai', 'Sorry — I could not reach the assistant service (' + e.message + ').');
+                novaHistory.pop();
+            } finally {
+                novaBusy = false;
+                document.getElementById('novaSend').disabled = false;
+                document.querySelectorAll('.nova-chip').forEach(c => c.disabled = false);
+            }
+        }
+
+        function sendNova(ev) {
+            ev.preventDefault();
+            const input = document.getElementById('novaText');
+            const q = input.value.trim();
+            if (!q) return false;
+            input.value = '';
+            askNova(q);
+            return false;
+        }
+
         // First paint fetches the LIVE forecast; sample data only as a fallback
         // when the API is unreachable (no alert on load).
         window.onload = async function () {
@@ -1380,6 +1603,8 @@
                 loadSampleData();
             }
             renderLog();
+            // Introduce the site: open the assistant automatically on start.
+            setTimeout(() => toggleNova(true), 900);
         };
     </script>
 </body>

@@ -50,6 +50,54 @@ function getBody(req) {
 
 const QUICKML_ENDPOINT_KEY = process.env.QUICKML_ENDPOINT_KEY || '';
 
+// Groq-powered site assistant (key lives ONLY here — server env var —
+// never in the browser-facing dashboard).
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODELS = ['qwen/qwen3.8-27b', 'openai/gpt-oss-20b'];
+
+// Full site knowledge for the assistant — kept server-side so the widget
+// stays a thin client and the prompt stays consistent for every visitor.
+const ASSISTANT_SYSTEM_PROMPT = `You are Nova, the friendly in-app guide for HackSphere 3.0 — Smart Energy Microgrid & Demand Forecasting Engine (a hackathon project on Zoho Catalyst). Your job: explain the site, its features, and how everything works. Be concise (usually 2–5 sentences, more when asked for detail), use plain language, and always reply in the user's language.
+
+CORE FACTS
+- Live dashboard: https://dashboard-ejcdhurx.onslate.in (Catalyst Slate, static HTML/JS/Chart.js, dark emerald theme with light-mode toggle).
+- Backend: Zoho Catalyst Advanced I/O Node.js function, POST .../server/predict/execute. It calls Zoho Catalyst QuickML and also runs the transition controller server-side.
+- Model: QuickML pipeline "ISR" → Decision-Tree regression model V1. Target: target_demand_kw (kW). Features: ambient_temp_c, humidity_pct, solar_irradiance_wm2. The timestamp column is required in the API payload but was dropped during training.
+- Forecast: the dashboard builds 24 hourly rows (synthetic diurnal weather: solar bell curve 06–18h, temperature min ~03:00 / max ~15:00, humidity inverse of temperature) for the next 24 hours, POSTs them, and gets back predictions + per-hour transition signals + a summary.
+
+PAGE SECTIONS (top → bottom)
+1. Header: logo, pulsing "QuickML Live" pill, theme toggle (☀️/🌙, saved in localStorage), API URL field, "⟳ Refresh Forecast", "⇪ Import CSV".
+2. Alert banner: slides in when any forecast hour is ≥ 200 kW, lists the hours.
+3. Four stat cards: Current Grid Mode (Renewable Storage vs Main Grid badge), Predicted Demand for the current hour (kW), Battery State of Charge (a simulation: starts at 87%, drains ~6%/h while supplying load in renewable mode, recharges ~4%/h on main grid; label shows autonomy or time-to-full), Peak Hours 18:00–22:00 count in renewable mode.
+4. 24-Hour Demand Forecast chart (Chart.js area line) with dashed threshold lines: 160 kW amber (renewable threshold), 200 kW rose (overload). Point colors: emerald = renewable hour, sky = main-grid hour.
+5. Forecast Details table: one row per hour — timestamp, predicted demand, grid-mode pill, status (✓ Normal or 🚨 Overload); current hour highlighted.
+6. Manual Telemetry Input: enter timestamp + temperature + humidity + solar irradiance, click "⚡ Predict Reading" — one reading through the same live QuickML pipeline, result shows kW + grid mode + overload pill.
+7. System Log: color-coded event feed (FETCH/CSV/MANUAL/ALERT/SYSTEM) persisted in localStorage, capped at 60 events, Clear button.
+8. Quick Test Controls: Load Sample Predictions, Simulate Overload, Clear Alert.
+9. Footer: QuickML attribution.
+
+TRANSITION RULES (exact, evaluated per forecast hour)
+- demand > 160 kW OR hour between 18:00 and 22:00 inclusive → Renewable Storage Mode
+- otherwise (≤ 160 kW and outside 18–22) → Main Grid Mode
+- demand ≥ 200 kW → Critical Overload Alert, independent of the mode.
+
+CSV IMPORT
+- A file with feature columns (timestamp, ambient_temp_c, humidity_pct, solar_irradiance_wm2) is scored live: every row goes through the QuickML-backed function and the table/chart update with predictions.
+- A pre-scored file (timestamp, target_demand_kw) is displayed as-is.
+
+KNOWN STATE (be honest if asked)
+- QuickML's free tier is 500 prediction calls/month per account. If it's exhausted, the function transparently falls back to a built-in heuristic model and the response note says "Using fallback model" — the site keeps working, but numbers then come from the heuristic, not the trained tree. The quota resets monthly (or with a plan upgrade).
+- The assistant itself runs on Groq (qwen3.8-27b) through the same function.
+- Tests: 39 pytest tests pass; test_eval.py prints SUCCESS. Graders run python predict.py --input <file>.csv --output predictions.csv, which batches all rows to the live function in ONE API call.
+- The project also contains a local Python pipeline (src/predict.py, src/transition.py, src/preprocessing.py) used for development and testing.
+
+BEHAVIOR
+- Greet warmly, explain any section on request, point users to the right button/panel by name.
+- If asked something off-topic (unrelated to this site, energy forecasting, grids, or the Zoho Catalyst/Groq stack), politely steer back.
+- Never invent UI elements or numbers that aren't described above; if unsure, say you're not sure.
+- Markdown-free plain text with short line breaks reads best in this widget.`;
+
 /** Run fn over items with at most `limit` in flight, preserving order. */
 async function mapWithConcurrency(items, limit, fn) {
     const results = new Array(items.length);
@@ -350,6 +398,87 @@ module.exports = async (req, res) => {
             } catch (e) {
                 sendJson(res, 200, { stratus: { error: e.message }, datastore: { error: e.message } });
             }
+            return;
+        }
+
+        // Virtual assistant: Groq-backed chat with full site knowledge.
+        // POST /assistant { messages: [{role, content}, ...] } -> { reply }
+        // Accepts text/plain (CORS-safelisted, same trick as the predict route).
+        if (method === 'POST' && path === '/assistant') {
+            if (!GROQ_API_KEY) {
+                sendJson(res, 503, {
+                    error: 'Assistant is not configured (GROQ_API_KEY missing)'
+                });
+                return;
+            }
+
+            const body = await getBody(req);
+            const incoming = Array.isArray(body.messages) ? body.messages : [];
+
+            // Keep only valid {role, content} entries with known roles, cap
+            // history so a client can't push unbounded payloads to Groq.
+            const history = incoming
+                .filter(m => m && (m.role === 'user' || m.role === 'assistant')
+                    && typeof m.content === 'string' && m.content.trim())
+                .slice(-12)
+                .map(m => ({ role: m.role, content: m.content.slice(0, 4000) }));
+
+            if (!history.length || history[history.length - 1].role !== 'user') {
+                sendJson(res, 400, { error: 'messages must end with a user message' });
+                return;
+            }
+
+            const groqMessages = [
+                { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
+                ...history
+            ];
+
+            // Try each model in turn (the key's accessible set changes over time).
+            let reply = null;
+            let lastErr = null;
+            for (const model of GROQ_MODELS) {
+                try {
+                    const r = await fetch(GROQ_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${GROQ_API_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model,
+                            messages: groqMessages,
+                            max_tokens: 700,
+                            temperature: 0.4
+                        })
+                    });
+                    const j = await r.json();
+                    if (j.error) {
+                        lastErr = `${model}: ${j.error.message}`;
+                        continue;
+                    }
+                    const choice = j.choices && j.choices[0];
+                    const text = choice && choice.message &&
+                        (choice.message.content || choice.message.reasoning_content);
+                    if (text && text.trim()) {
+                        reply = text.trim();
+                        break;
+                    }
+                    lastErr = `${model}: empty completion`;
+                } catch (e) {
+                    lastErr = `${model}: ${e.message}`;
+                }
+            }
+
+            if (reply === null) {
+                console.warn('Groq assistant call failed:', lastErr);
+                sendJson(res, 502, {
+                    error: 'Assistant model unavailable',
+                    detail: lastErr
+                });
+                return;
+            }
+
+            sendJson(res, 200, { reply });
             return;
         }
 

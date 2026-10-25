@@ -364,6 +364,46 @@ was consumed by integration testing. Until it resets or the plan is upgraded:
 
 ---
 
+## Phase 12: Virtual Assistant (Nova)
+**Status: ✓ COMPLETED**
+
+Goal: a guide that appears at site start, explains everything, and knows the
+full site — without ever exposing an API key to the browser.
+
+### 12a. Groq-backed `/assistant` route (server-side key)
+- [x] Verified Groq models this key can use: `qwen/qwen3.8-27b` (primary)
+  and `openai/gpt-oss-20b` (fallback) — `llama-3.3-70b-versatile` is now
+  Enterprise-only
+- [x] `GROQ_API_KEY` added as a **function env var** (`catalyst-config.json`,
+  git-ignored; template documented in `catalyst-config.example.json`)
+- [x] `POST /assistant { messages[] } → { reply }` in `functions/predict/index.js`:
+  injects a site-knowledge system prompt (features, grid rules 160/180/200
+  kW, 18–22h peak window, CSV import, manual predictions, system log,
+  architecture, QuickML fallback), sanitizes message history (max 12 turns,
+  user/assistant only), model fallback cascade, 502/503 with clear errors
+- [x] Route accepts `text/plain` body (CORS-safelisted) because the Catalyst
+  gateway answers OPTIONS **without** CORS headers — it never reaches the
+  function. Same trick as the predict route.
+- [x] Curl-verified: accurate site summary, correct transition rules,
+  multi-turn context
+
+### 12b. Dashboard widget
+- [x] Chat panel (Nova) with launcher button, animated typing indicator,
+  quick-prompt chips, message history (last 12 turns kept for context)
+- [x] **Auto-opens ~1s after page load** with an introduction of the site,
+  per the requirement "shows up at start of the site explaining everything"
+- [x] Graceful degradation: assistant outage shows a friendly notice without
+  breaking the dashboard; every answer is logged to the System Log panel
+
+### 12c. Live verification (https://dashboard-ejcdhurx.onslate.in)
+- [x] Auto-open + greeting works from the deployed Slate site
+- [x] Q&A verified: site overview and grid-switch rules (160 kW / 18–22h)
+  answered correctly with **zero console errors**
+- [x] Key exposure audit: Groq key exists only as a function env var —
+  never in `dashboard/`, git history, or the submission zip
+
+---
+
 ## Dependencies
 
 ```txt
@@ -481,6 +521,7 @@ test_eval.py: SUCCESS
 pytest: 39 passed in 13.38s
 Function: 1000-row batch → HTTP 200 in 9.0s (bulk path, 0 non-finite)
 Browser: zero console errors · manual form + CSV import verified live
+Assistant: Nova auto-opens on load · Groq qwen3.8-27b via /assistant (key server-side only)
 Git: 146 files committed · secret scan clean · ISR_Forceast_Submission.zip (231 files)
 ```
 
