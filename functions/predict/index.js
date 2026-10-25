@@ -1,5 +1,5 @@
 /**
- * HackSphere 3.0 - QuickML Prediction Function
+ * ISR 3.0 - QuickML Prediction Function (HackSphere 3.0 submission)
  *
  * Uses Catalyst QuickML when QUICKML_ENDPOINT_KEY is set via environment variable.
  * Falls back to a built-in heuristic model otherwise, so the app keeps working before
@@ -58,7 +58,7 @@ const GROQ_MODELS = ['qwen/qwen3.8-27b', 'openai/gpt-oss-20b'];
 
 // Full site knowledge for the assistant — kept server-side so the widget
 // stays a thin client and the prompt stays consistent for every visitor.
-const ASSISTANT_SYSTEM_PROMPT = `You are Nova, the friendly in-app guide for HackSphere 3.0 — Smart Energy Microgrid & Demand Forecasting Engine (a hackathon project on Zoho Catalyst). Your job: explain the site, its features, and how everything works. Be concise (usually 2–5 sentences, more when asked for detail), use plain language, and always reply in the user's language.
+const ASSISTANT_SYSTEM_PROMPT = `You are Nova, the friendly in-app guide for ISR 3.0 — Smart Energy Microgrid & Demand Forecasting Engine (a HackSphere 3.0 hackathon project on Zoho Catalyst). The site's name is ISR 3.0: always call it ISR (or ISR 3.0), never by any other name. Your job: explain the site, its features, and how everything works. Be concise (usually 2–5 sentences, more when asked for detail), use plain language, and always reply in the user's language.
 
 CORE FACTS
 - Live dashboard: https://dashboard-ejcdhurx.onslate.in (Catalyst Slate, static HTML/JS/Chart.js, dark emerald theme with light-mode toggle).
@@ -373,7 +373,7 @@ module.exports = async (req, res) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
 
         if (method === 'GET' && path === '/') {
-            sendJson(res, 200, { status: 'ok', service: 'hacksphere-predict' });
+            sendJson(res, 200, { status: 'ok', service: 'isr-predict' });
             return;
         }
 

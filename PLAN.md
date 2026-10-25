@@ -396,11 +396,18 @@ full site — without ever exposing an API key to the browser.
   breaking the dashboard; every answer is logged to the System Log panel
 
 ### 12c. Live verification (https://dashboard-ejcdhurx.onslate.in)
+- [x] Rebrand: site now presented as **ISR 3.0** everywhere — page title, header
+  logo, footer, Nova's subtitle, and the assistant's system prompt (it now
+  answers "ISR 3.0" when asked the site's name). Repo/plan docs keep the
+  HackSphere 3.0 hackathon context.
 - [x] Auto-open + greeting works from the deployed Slate site
 - [x] Q&A verified: site overview and grid-switch rules (160 kW / 18–22h)
   answered correctly with **zero console errors**
 - [x] Key exposure audit: Groq key exists only as a function env var —
   never in `dashboard/`, git history, or the submission zip
+- [x] Chat panel made solid: `--surface` is 3.5% white in dark theme, which
+  made the chat look see-through — panel now uses an opaque `#0a1411`
+  (light: `#ffffff`) with matching solid message/input bars
 
 ---
 
