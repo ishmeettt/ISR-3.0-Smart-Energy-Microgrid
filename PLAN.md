@@ -702,3 +702,14 @@ Git: 146 files committed · secret scan clean · ISR_Forceast_Submission.zip (23
    - 10% UI
    
    Should we prioritize getting a live deployment first (even with fallback model), or perfect the QuickML model first?
+
+## Presentation Deck
+
+**Status: ✅ BUILT (2026-10-26)** — `ppt/isr-overview.pptx`
+
+- 13 slides, 16:9 dark "control-room" theme (matches the dashboard palette: cyan/green/amber/indigo on deep navy)
+- Flow: Cover → Problem → Solution → How It Works → Transition Rules → Architecture → Frontend → The Model → Scaling & Robustness → Current State → Nova Assistant → Why It Wins → Next Steps
+- Sources: `ppt/slide1.py` … `ppt/slide13.py` (each compiles standalone)
+- Build: `python ppt/_emit.py` (regenerates `ppt/build-ppt.py` from the slide sources) then `python ppt/build-ppt.py` → `ppt/isr-overview.pptx`
+- Verified: all 13 slides reopen via python-pptx; every slide's text content inspected — no mangled strings, correct line breaks, escaped quotes render as intended
+- Assets: `ppt/img/` (Nova avatar PNG used on slide 11; SVG art kept as source)
